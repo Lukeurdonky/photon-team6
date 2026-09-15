@@ -3,7 +3,7 @@
 
 Team 6's implementation of the Photon Laser tag Software Engineering Project.
 
-======Team 6 Members:======
+======Team 6 Members: ======
  -  Aiden Adams
  -  Andrea Cano-Villafranca
  -  Daniel Choi
