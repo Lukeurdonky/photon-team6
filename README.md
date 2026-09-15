@@ -1,5 +1,6 @@
 # photon-team6
-======README.TXT======
+======README======
+
 Team 6's implementation of the Photon Laser tag Software Engineering Project.
 
 ======Team 6 Members:======
