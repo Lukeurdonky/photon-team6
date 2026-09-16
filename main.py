@@ -1,3 +1,4 @@
+from PIL import Image, ImageTk
 import tkinter as tk
 
 
@@ -11,6 +12,7 @@ class Controller:
     def update():
         pass
 
+# model may not expressly be needed because the database will be the backend.
 class Model:
     def __init__(self):
         pass
