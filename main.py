@@ -1,4 +1,4 @@
-import tkinter
+import tkinter as tk
 
 
 # ATTEMPTING to copy the programming style we learned from Paradigms
@@ -8,21 +8,30 @@ class Controller:
         self.view = view
         self.keep_going = True
 
+    def update():
+        pass
+
 class Model:
     def __init__(self):
-        self.test = True
+        pass
+
+    def update():
+        pass
 
 class View:
     def __init__(self, model):
-        self.test = True
+        self.model = model
+
+    def update():
+        pass
 
 
 
 # This here-on acts sort of as "main" and the game loop
+root = tk.Tk()
 m = Model()
 v = View(m)
 c = Controller(m, v)
-
 
 
 def game_loop():
@@ -34,4 +43,5 @@ def game_loop():
     while c.keep_going:
         root.after(40, game_loop)
 
-# def
+# starts the game loop
+game_loop()
