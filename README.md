@@ -11,7 +11,8 @@ Team 6's implementation of the Photon Laser tag Software Engineering Project.
  -  Luca Palazzo
 
 ======Instructions: ======
-1. Placeholder for instructions on running the program
-
-Install dependencies with this in powershell terminal:
+1. Install dependencies with this in powershell terminal:
 pip install -r requirements.txt
+
+2. Run Program with:
+python main.py
