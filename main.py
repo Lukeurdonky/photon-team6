@@ -1,5 +1,12 @@
 from PIL import Image, ImageTk
 import tkinter as tk
+import socket
+import time
+import random
+import threading
+
+#from references.udp_files import udp_receive #importing the given UDP python code
+#from references.udp_files import udp_transmit
 
 # Luca's attempt at a splash screen
 class SplashScreen(tk.Frame):
@@ -47,6 +54,84 @@ class SplashScreen(tk.Frame):
         self.direction = -1
         self.animate()
 
+class UDPSocket():
+    def __init__(
+        self,
+        #Receive init
+        rc_host = "0.0.0.0",
+        rc_port = 7501,
+        buffer_size = 4096,
+        #Transmit init
+        source_ip = "127.0.0.1",
+        tr_port = 7500,
+        broadcast_ip = "127.0.0.255",
+        message = "UDP TEST" #change later
+        ):
+        self.rc_host = rc_host
+        self.rc_port = rc_port
+        self.buffer_size = buffer_size
+
+        self.source_ip = source_ip
+        self.tr_port = tr_port
+        self.broadcast_ip = broadcast_ip
+        self.message = message
+
+        # Receive socket
+        self.recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.recv_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.recv_sock.bind((self.rc_host, self.rc_port))
+        self.recv_sock.settimeout(0.5)
+
+        # Transmit socket
+        self.send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.send_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+
+        self.running = False
+
+    def _receive_loop(self):
+        print(f"Listening for UDP on {self.rc_host}:{self.rc_port}...")
+        while self.running:
+            try:
+                data, addr = self.recv_sock.recvfrom(self.buffer_size)
+                print(f"From {addr}: {data.decode(errors='ignore')}")
+            except KeyboardInterrupt:
+                print("\nShutting down.")
+                break
+            except socket.timeout:
+                continue
+            except OSError:
+                break
+
+    def _send_loop(self):
+        print(f"Broadcasting from {self.source_ip} to {self.broadcast_ip}:{self.tr_port}")
+        while self.running:
+            self.send_sock.sendto(self.message.encode(), (self.broadcast_ip, self.tr_port))
+            print("Sent:", self.message)
+            time.sleep(1)
+
+    def start(self):
+        self.running = True
+
+        self.recv_thread = threading.Thread(target=self._receive_loop, daemon=True)
+        self.send_thread = threading.Thread(target=self._send_loop, daemon=True)
+        self.recv_thread.start()
+        self.send_thread.start()
+
+    def send(self, message):
+        self.send_sock.sendto(message.encode(), (self.broadcast_ip, self.tr_port))
+
+    def stop(self):
+        self.running = False
+        try:
+            self.recv_sock.close()
+        except Exception:
+            pass
+
+        try:
+            self.send_sock.close()
+        except Exception:
+            pass
+
 # ATTEMPTING to copy the programming style we learned from Paradigms
 class Controller:
     def __init__(self, model, view):
@@ -93,6 +178,17 @@ splashScreen = SplashScreen(root, c)
 # this makes the splash screen render
 splashScreen.pack(fill="both", expand=True)
 splashScreen.on_show()
+
+####   UDP TEST
+udp = UDPSocket()
+udp.start()
+
+# send a custom message
+udp.send("PLAYER_HIT:123")
+
+# stop it later
+udp.stop()
+################
 
 # this is called every 40ms
 def game_loop():
