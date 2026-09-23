@@ -5,9 +5,6 @@ import time
 import random
 import threading
 
-#from references.udp_files import udp_receive #importing the given UDP python code
-#from references.udp_files import udp_transmit
-
 # Luca's attempt at a splash screen
 class SplashScreen(tk.Frame):
     def __init__(self, parent, controller):
@@ -88,6 +85,7 @@ class UDPSocket():
 
         self.running = False
 
+    # loop for receiving transmissions
     def _receive_loop(self):
         print(f"Listening for UDP on {self.rc_host}:{self.rc_port}...")
         while self.running:
@@ -102,6 +100,7 @@ class UDPSocket():
             except OSError:
                 break
 
+    # loop for sending transmissions
     def _send_loop(self):
         print(f"Broadcasting from {self.source_ip} to {self.broadcast_ip}:{self.tr_port}")
         while self.running:
@@ -109,6 +108,7 @@ class UDPSocket():
             print("Sent:", self.message)
             time.sleep(1)
 
+    # simultaneously starts sending and receiving via threading
     def start(self):
         self.running = True
 
@@ -117,9 +117,11 @@ class UDPSocket():
         self.recv_thread.start()
         self.send_thread.start()
 
+    # sends a single message, or at least it should.
     def send(self, message):
         self.send_sock.sendto(message.encode(), (self.broadcast_ip, self.tr_port))
 
+    # stops running the UDP
     def stop(self):
         self.running = False
         try:
