@@ -68,6 +68,61 @@ class PlayerEntryScreen(tk.Frame):
         # Current network being used
         self.selected_network = DEFAULT_NETWORK
 
+        # Main heading
+        tk.Label(self, text = "EDIT CURRENT GAME", bg = "black", fg = "#5CE1E6", font = ("Arial", 20, "bold")
+        ).pack(pady = 15)
+
+        # Subheading
+        tk.Label(self, text = "PHOTON LASER TAG SYSTEM", bg = "black", fg = "#5CE1E6", font = ("Arial", 12)
+        ).pack(pady = 15)
+
+        # Frame to hold both teams
+        teams_frame = tk.Frame(self, bg = "black")
+        teams_frame.pack()
+
+        # Create red team panel
+        red_frame, self.red_rows = self.build_team_panel(teams_frame, "RED TEAM", "#B22222")
+        red_frame.grid(row = 0, column = 0, padx = 15)
+
+        # Create green team panel
+        green_frame, self.green_rows = self.build_team_panel(teams_frame, "GREEN TEAM", "#228B22")
+        green_frame.grid(row = 0, column = 1, padx = 15)
+
+        # Frame for network selection
+        network_frame = tk.Frame(self, bg = "black")
+        network_frame.pack(pady = 20)
+
+        # Network address label
+        tk.Label(network_frame, text = "Network Address:", bg = "black", fg = "white"
+        ).grid(row = 0, column = 0, padx = 5)
+
+        # Network address entry box
+        self.network_entry = tk.Entry(network_frame, bg = "#2A1633", fg = "#F7F4F6", insertbackground = "#F7F4F6", width = 20)
+        self.network_entry.grid(row = 0, column = 1, padx = 5)
+
+        # Set localhost as the default network
+        self.network_entry.insert(0, DEFAULT_NETWORK)
+
+        # Button to apply a different network
+        tk.Button(network_frame, text = "Apply", command = self.apply_network
+        ).grid(row = 0, column = 2, padx = 5)
+
+        # Frame for game controls
+        controls_frame = tk.Frame(self, bg = "#0B0712")
+        controls_frame.pack(pady = 5)
+
+        # Button to start the game
+        tk.Button(controls_frame, text = "F5 - START GAME", command = self.start_game
+        ).grid(row = 0, column = 0, padx = 5)
+
+        # Button to clear all player entries
+        tk.Button(controls_frame, text = "F12 - CLEAR GAME", command = self.clear_game
+        ).grid(row = 0, column = 1, padx = 5)
+
+        # Status message at the bottom
+        self.status_label = tk.Label(self, text = "SYSTEM READY", bg = "black", fg = "#5CE1E6")
+        self.status_label.pack()
+
 class UDPSocket():
     def __init__(
         self,
