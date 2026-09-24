@@ -1,9 +1,15 @@
+# Import necessary libraries and modules
 from PIL import Image, ImageTk
 import tkinter as tk
 import socket
 import time
 import random
 import threading
+import ipaddress
+
+# Constant values for the player entry screen
+MAX_PLAYERS = 15
+DEFAULT_NETWORK = "127.0.0.1"
 
 # Luca's attempt at a splash screen
 class SplashScreen(tk.Frame):
@@ -50,6 +56,17 @@ class SplashScreen(tk.Frame):
     def start_fade_out(self):
         self.direction = -1
         self.animate()
+
+# Player entry screen
+class PlayerEntryScreen(tk.Frame):
+    def __init__(self, parent, controller, udp):
+        super().__init__(parent, bg = "#0B0712")
+
+        self.controller = controller
+        self.udp = udp
+
+        # Current network being used
+        self.selected_network = DEFAULT_NETWORK
 
 class UDPSocket():
     def __init__(
