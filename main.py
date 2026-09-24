@@ -123,6 +123,81 @@ class PlayerEntryScreen(tk.Frame):
         self.status_label = tk.Label(self, text = "SYSTEM READY", bg = "black", fg = "#5CE1E6")
         self.status_label.pack()
 
+    # Function to create a team panel with player rows
+    def build_team_panel(self, parent, team_name, team_color):
+        # Create a frame for the team panel
+        frame = tk.Frame(parent, bg = team_color, padx = 10, pady = 10)
+
+        # List to store the entry boxes for each player
+        player_rows = []
+
+        # Team title
+        tk.Label(frame, text = team_name, bg = team_color, fg = "#FAF8F6", font = ("Terminal", 18, "bold")
+        ).grid(row = 0, column = 0, columnspan = 4, pady = 5)
+
+        # Column titles
+        tk.Label(frame, text = "#", bg = team_color, fg = "#FAF8F6"
+        ).grid(row = 1, column = 0)
+
+        tk.Label(frame, text = "Player ID", bg = team_color, fg = "#FAF8F6"
+        ).grid(row = 1, column = 1)
+
+        tk.Label(frame, text = "Codename", bg = team_color, fg = "#FAF8F6"
+        ).grid(row = 1, column = 2)
+
+        tk.Label(frame, text = "Equipment ID", bg = team_color, fg = "#FAF8F6"
+        ).grid(row = 1, column = 3)
+
+        # Create 15 player rows
+        for i in range(MAX_PLAYERS):
+            row_number = i + 1
+
+            # Player number
+            tk.Label(frame, text = str(row_number), bg = team_color, fg = "#FAF8F6"
+            ).grid(row = i + 2, column = 0, padx = 5, pady = 2)
+
+            # Player ID entry box
+            player_id_entry = tk.Entry(frame, bg = "#2A1633", fg = "#F7F4F6", insertbackground = "#F7F4F6", width = 10)
+            player_id_entry.grid(row = i + 2, column = 1, padx = 2, pady = 2)
+
+            # Codename entry box
+            codename_entry = tk.Entry(frame, bg = "#2A1633", fg = "#F7F4F6", insertbackground = "#F7F4F6", width = 16)
+            codename_entry.grid(row = i + 2, column = 2, padx = 2, pady = 2)
+
+            # Equipment ID entry box
+            equipment_id_entry = tk.Entry(frame, bg = "#2A1633", fg = "#F7F4F6", insertbackground = "#F7F4F6", width = 10)
+            equipment_id_entry.grid(row = i + 2, column = 3, padx = 2, pady = 2)
+
+            # Store the entry boxes for the player
+            player_rows.append({"player_id": player_id_entry, "codename": codename_entry, "equipment_id": equipment_id_entry})
+
+        return frame, player_rows
+
+    # Function for changing the network address
+    def apply_network(self):
+        address = self.network_entry.get().strip()
+
+        # Make sure an address was entered
+        if address == "":
+            self.status_label.config(text = "Please enter a network address.")
+            return
+
+        # Make sure the network address is valid
+        try:
+            ipaddress.ip_address(address)
+        except ValueError:
+            self.status_label.config(text = "Please enter a valid IPv4 or IPv6 address.")
+            return
+
+        # Store the selected network
+        self.selected_network = address
+
+        # Update the status message
+        self.status_label.config(text = "Selected network: " + address)
+
+        # Print selected network for testing
+        print("Selected UDP network:", self.selected_network)
+
 class UDPSocket():
     def __init__(
         self,
