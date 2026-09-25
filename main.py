@@ -148,6 +148,9 @@ class PlayerEntryScreen(tk.Frame):
         tk.Label(frame, text = "Equipment ID", bg = team_color, fg = "#FAF8F6"
         ).grid(row = 1, column = 3)
 
+        tk.Label(frame, text = "Add", bg = team_color, fg = "#FAF8F6"
+        ).grid(row = 1, column = 4)
+
         # Create 15 player rows
         for i in range(MAX_PLAYERS):
             row_number = i + 1
@@ -168,10 +171,40 @@ class PlayerEntryScreen(tk.Frame):
             equipment_id_entry = tk.Entry(frame, bg = "#2A1633", fg = "#F7F4F6", insertbackground = "#F7F4F6", width = 10)
             equipment_id_entry.grid(row = i + 2, column = 3, padx = 2, pady = 2)
 
+            add_player_button = tk.Button(
+                frame,
+                text = "Add",
+                command = lambda row = {"player_id": player_id_entry, "codename": codename_entry, "equipment_id": equipment_id_entry}, team = team_name: self.add_player(row, team)
+            )
+            add_player_button.grid(row = i + 2, column = 4, padx = 2, pady = 2)
+
             # Store the entry boxes for the player
-            player_rows.append({"player_id": player_id_entry, "codename": codename_entry, "equipment_id": equipment_id_entry})
+            player_rows.append({"player_id": player_id_entry, "codename": codename_entry, "equipment_id": equipment_id_entry, "add_button": add_player_button})
 
         return frame, player_rows
+
+    def add_player(self, row, team_name):
+        player_id = row["player_id"].get().strip()
+        codename = row["codename"].get().strip()
+        equipment_id = row["equipment_id"].get().strip()
+
+        if player_id == "" or codename == "" or equipment_id == "":
+            self.status_label.config(text = "Please complete all fields before adding a player.")
+            return
+
+        if not player_id.isdigit():
+            self.status_label.config(text = "Player ID must be an integer.")
+            return
+
+        if not equipment_id.isdigit():
+            self.status_label.config(text = "Equipment ID must be an integer.")
+            return
+
+        if self.udp is not None:
+            self.udp.send(str(equipment_id))
+            print(f"Broadcasted equipment ID: {equipment_id}")
+
+        self.status_label.config(text = f"Added {codename} to {team_name}.")
 
     # Function for changing the network address
     def apply_network(self):
@@ -191,6 +224,8 @@ class PlayerEntryScreen(tk.Frame):
 
         # Store the selected network
         self.selected_network = address
+        if self.udp is not None:
+            self.udp.broadcast_ip = address
 
         # Update the status message
         self.status_label.config(text = "Selected network: " + address)
@@ -360,25 +395,41 @@ class UDPSocket():
                 break
 
     # loop for sending transmissions
-    def _send_loop(self):
+    def _send_loop(self, interval = 1.0):
         print(f"Broadcasting from {self.source_ip} to {self.broadcast_ip}:{self.tr_port}")
         while self.running:
             self.send_sock.sendto(self.message.encode(), (self.broadcast_ip, self.tr_port))
             print("Sent:", self.message)
-            time.sleep(1)
+            time.sleep(interval)
 
     # simultaneously starts sending and receiving via threading
-    def start(self):
+    def start(self, send_periodic = False, interval = 1.0):
         self.running = True
 
         self.recv_thread = threading.Thread(target=self._receive_loop, daemon=True)
-        self.send_thread = threading.Thread(target=self._send_loop, daemon=True)
         self.recv_thread.start()
-        self.send_thread.start()
+
+        if send_periodic:
+            self.send_thread = threading.Thread(target=self._send_loop, args=(interval,), daemon=True)
+            self.send_thread.start()
+
+    def start_periodic_broadcast(self, message = None, interval = 1.0):
+        if message is not None:
+            self.message = message
+        if not self.running:
+            self.start(send_periodic=True, interval=interval)
+        else:
+            self.send_thread = threading.Thread(target=self._send_loop, args=(interval,), daemon=True)
+            self.send_thread.start()
 
     # sends a single message, or at least it should.
     def send(self, message):
-        self.send_sock.sendto(message.encode(), (self.broadcast_ip, self.tr_port))
+        try:
+            payload = str(message).encode("utf-8")
+            self.send_sock.sendto(payload, (self.broadcast_ip, self.tr_port))
+            print(f"Sent UDP: {message} -> {self.broadcast_ip}:{self.tr_port}")
+        except OSError as exc:
+            print(f"UDP send failed: {exc}")
 
     # stops running the UDP
     def stop(self):
@@ -399,13 +450,21 @@ class Controller:
         self.model = model
         self.view = view
         self.keep_going = True
+        self.splash_screen = None
+        self.player_entry_screen = None
 
     def update(self):
         pass
 
     # eventually show player screen
     def show_player_screen(self):
-        pass
+        if self.splash_screen is not None:
+            self.splash_screen.pack_forget()
+        if self.player_entry_screen is not None:
+            self.player_entry_screen.pack(fill="both", expand=True)
+            self.player_entry_screen.tkraise()
+            if hasattr(self.player_entry_screen, "network_entry"):
+                self.player_entry_screen.network_entry.focus_set()
 
     # eventually show game screen
     def show_game_screen(self):
@@ -436,20 +495,23 @@ m = Model()
 v = View(m)
 c = Controller(m, v)
 splashScreen = SplashScreen(root, c)
-# this makes the splash screen render
 splashScreen.pack(fill="both", expand=True)
+
+# test building entry screen
+playerEntry = PlayerEntryScreen(root, c, udp=None)
+playerEntry.pack_forget()
+
+# store screen references for controller transitions
+c.splash_screen = splashScreen
+c.player_entry_screen = playerEntry
+
+# this makes the splash screen render after everything is connected
 splashScreen.on_show()
 
 ####   UDP TEST
 udp = UDPSocket()
 udp.start()
-
-# send a custom message
-udp.send("PLAYER_HIT:123")
-
-# stop it later
-udp.stop()
-################
+playerEntry.udp = udp
 
 # this is called every 40ms
 def game_loop():
