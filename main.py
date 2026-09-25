@@ -198,6 +198,118 @@ class PlayerEntryScreen(tk.Frame):
         # Print selected network for testing
         print("Selected UDP network:", self.selected_network)
 
+    # Function for clearing all player entries
+    def clear_game(self, event = None):
+        # Go through every player row on both teams
+        for row in self.red_rows + self.green_rows:
+            # Clear the player ID entry box
+            row["player_id"].delete(0, tk.END)
+
+            # Clear the codename entry box
+            row["codename"].delete(0, tk.END)
+
+            # Clear the equipment ID entry box
+            row["equipment_id"].delete(0, tk.END)
+
+        # Update the status message
+        self.status_label.config(text = "GAME CLEARED")
+
+        # Return the cursor to the first player ID box
+        self.red_rows[0]["player_id"].focus_set()
+
+
+    # Function for getting player information from a team
+    def get_players(self, player_rows, team_name):
+        players = []
+
+        # Go through every player row
+        for row in player_rows:
+            player_id = row["player_id"].get().strip()
+            codename = row["codename"].get().strip()
+            equipment_id = row["equipment_id"].get().strip()
+
+            # Ignore rows that are completely empty
+            if player_id == "" and codename == "" and equipment_id == "":
+                continue
+
+            # Make sure partially filled rows are completed
+            if player_id == "" or codename == "" or equipment_id == "":
+                self.status_label.config(text = "Please complete all fields for " + team_name + ".")
+                return None
+
+            # Make sure player ID is an integer
+            if not player_id.isdigit():
+                self.status_label.config(text = "Player ID must be an integer.")
+                return None
+
+            # Make sure equipment ID is an integer
+            if not equipment_id.isdigit():
+                self.status_label.config(text = "Equipment ID must be an integer.")
+                return None
+
+            # Store the player information
+            players.append({"player_id": int(player_id), "codename": codename, "equipment_id": int(equipment_id), "team": team_name})
+
+        return players
+
+
+    # Function for checking duplicate player and equipment IDs
+    def check_duplicates(self, red_players, green_players):
+        all_players = red_players + green_players
+
+        player_ids = set()
+        equipment_ids = set()
+
+        # Go through all players on both teams
+        for player in all_players:
+            player_id = player["player_id"]
+            equipment_id = player["equipment_id"]
+
+            # Check for duplicate player IDs
+            if player_id in player_ids:
+                self.status_label.config(text = "Player IDs cannot be duplicated.")
+                return False
+
+            player_ids.add(player_id)
+
+            # Check for duplicate equipment IDs
+            if equipment_id in equipment_ids:
+                self.status_label.config(text = "Equipment IDs cannot be duplicated.")
+                return False
+
+            equipment_ids.add(equipment_id)
+
+        return True
+
+
+    # Function for starting the game
+    def start_game(self, event = None):
+        # Get players from both teams
+        red_players = self.get_players(self.red_rows, "RED TEAM")
+        green_players = self.get_players(self.green_rows, "GREEN TEAM")
+
+        # Stop if there was an error
+        if red_players is None or green_players is None:
+            return
+
+        # Make sure at least one player was entered
+        if len(red_players) == 0 and len(green_players) == 0:
+            self.status_label.config(text = "Please enter at least one player.")
+            return
+
+        # Make sure there are no duplicate IDs
+        if not self.check_duplicates(red_players, green_players):
+            return
+
+        # Print players for testing
+        print("Red Team:", red_players)
+        print("Green Team:", green_players)
+
+        # Update the status message
+        self.status_label.config(text = "GAME READY")
+
+        # Eventually show the game screen
+
 class UDPSocket():
     def __init__(
         self,
@@ -319,7 +431,7 @@ class View:
 # between here and game_loop acts as "main" (only called once)
 root = tk.Tk()
 # set window size
-root.geometry("800x600")
+root.geometry("1280x850")
 m = Model()
 v = View(m)
 c = Controller(m, v)
