@@ -18,8 +18,6 @@ python -m pip install -r requirements.txt
 python main.py
 
 ======Debian instructions: ======
-When using the Virtual Machine, follow these instructions:
-
 1. Login to the Virtual Machine using the username and password: student
 
 2. Download and extract the project zip file from GitHub
