@@ -71,6 +71,7 @@ echo "=== 7. Bootstrapping pip manually ==="
 curl -sS https://bootstrap.pypa.io/get-pip.py | python
 
 echo "=== 8. Downloading additional requirements ==="
+sudo apt-get install python3-tk
 pip install -r requirements.txt
 
 echo "=== Installation complete! ==="
