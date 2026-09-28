@@ -34,7 +34,22 @@ sudo apt-get install -y --allow-downgrades --allow-remove-essential --allow-chan
   liblzma-dev \
   git
 
-echo "=== 4. Checking for pyenv installation ==="
+echo "=== 4. Set pyenv source ==="
+# Configure pyenv environment variables for the current script session
+export PYENV_ROOT="$HOME/.pyenv"
+export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init -)"
+
+# Append to .bashrc so future terminal sessions automatically recognize pyenv
+PROFILE_FILE="$HOME/.bashrc"
+if ! grep -q 'PYENV_ROOT' "$PROFILE_FILE"; then
+  echo '' >> "$PROFILE_FILE"
+  echo 'export PYENV_ROOT="$HOME/.pyenv"' >> "$PROFILE_FILE"
+  echo '[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"' >> "$PROFILE_FILE"
+  echo 'eval "$(pyenv init -)"' >> "$PROFILE_FILE"
+fi
+
+echo "=== 5. Checking for pyenv installation ==="
 if ! command -v pyenv &> /dev/null; then
   echo "pyenv not found. Installing pyenv..."
   curl https://pyenv.run | bash
@@ -58,19 +73,19 @@ else
   eval "$(pyenv init -)"
 fi
 
-echo "=== 5. Building Python $PYTHON_VERSION without ensurepip ==="
+echo "=== 6. Building Python $PYTHON_VERSION without ensurepip ==="
 CPPFLAGS="-I/usr/include/openssl" \
 LDFLAGS="-L/usr/lib" \
 PYTHON_CONFIGURE_OPTS="--without-ensurepip" \
 pyenv install "$PYTHON_VERSION" --force
 
-echo "=== 6. Setting local/global pyenv version ==="
+echo "=== 7. Setting local/global pyenv version ==="
 pyenv local "$PYTHON_VERSION" || pyenv global "$PYTHON_VERSION"
 
-echo "=== 7. Bootstrapping pip manually ==="
+echo "=== 8. Bootstrapping pip manually ==="
 curl -sS https://bootstrap.pypa.io/get-pip.py | python
 
-echo "=== 8. Downloading additional requirements ==="
+echo "=== 9. Downloading additional requirements ==="
 sudo apt-get install python3-tk
 pip install -r requirements.txt
 
