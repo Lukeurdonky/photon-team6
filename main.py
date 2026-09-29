@@ -17,7 +17,7 @@ class SplashScreen(tk.Frame):
         super().__init__(parent, bg="black")
         self.controller = controller
 
-        logo = Image.open("logo.jpg").convert("RGBA")
+        logo = Image.open("images/logo.jpg").convert("RGBA")
         logo.thumbnail((800, 600))
         black_bg = Image.new("RGBA", logo.size, (0, 0, 0, 255))
 
@@ -53,6 +53,47 @@ class SplashScreen(tk.Frame):
             self.controller.show_player_screen()
 
     # the fade out
+    def start_fade_out(self):
+        self.direction = -1
+        self.animate()
+
+# Class for countdown
+class Countdown(tk.Frame):
+    def __init__(self, parent, controller):
+        super().__init__(parent, bg="black")
+        self.controller = controller
+
+        countImages = []
+        for i in range(0, 30):
+            countImages.append(Image.open("images/countdown" + str(i) + ".jpg").convert("RGBA"))
+            countImages[i].thumbnail((800, 600))
+
+        black_bg = Image.new("RGBA", countImages[0].size, (0, 0, 0, 255)) 
+        steps = 15
+        self.frames = [
+            ImageTk.PhotoImage(Image.blend(black_bg, countImages[i], j / steps))
+            for i in range(30, 0, -1)
+            for j in range(steps + 1)
+        ]
+
+    def on_show(self):
+        self.index, self.direction = 0, 1
+        self.animate()
+
+    def animate(self):
+        self.label.configure(image=self.frames[self.index])
+        if self.direction == 1 and self.index < len(self.frames) - 1:
+            self.index += 1
+            self.after(30, self.animate)
+        elif self.direction == 1:
+            self.after(2000, self.start_fade_out)  # hold fully visible
+        elif self.index > 0:
+            self.index -= 1
+            self.after(30, self.animate)
+        else:
+            # will eventually render the next screen
+            self.controller.show_game_screen()
+
     def start_fade_out(self):
         self.direction = -1
         self.animate()
@@ -452,6 +493,7 @@ class Controller:
         self.keep_going = True
         self.splash_screen = None
         self.player_entry_screen = None
+        self.countdown_screen = None
 
     def update(self):
         pass
@@ -466,8 +508,7 @@ class Controller:
             if hasattr(self.player_entry_screen, "network_entry"):
                 self.player_entry_screen.network_entry.focus_set()
 
-    # eventually show game screen
-    def show_game_screen(self):
+    def show_game_screen(self): 
         pass
 
 # model may not expressly be needed because the database will be the backend.
@@ -501,9 +542,13 @@ splashScreen.pack(fill="both", expand=True)
 playerEntry = PlayerEntryScreen(root, c, udp=None)
 playerEntry.pack_forget()
 
+# countdown screen
+countdownScreen = Countdown(root, c)
+
 # store screen references for controller transitions
 c.splash_screen = splashScreen
 c.player_entry_screen = playerEntry
+c.countdown_screen = countdownScreen
 
 # this makes the splash screen render after everything is connected
 splashScreen.on_show()
