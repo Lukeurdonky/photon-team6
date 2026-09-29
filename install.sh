@@ -77,7 +77,7 @@ echo "=== 6. Building Python $PYTHON_VERSION without ensurepip ==="
 CPPFLAGS="-I/usr/include/openssl" \
 LDFLAGS="-L/usr/lib" \
 PYTHON_CONFIGURE_OPTS="--without-ensurepip" \
-pyenv install "$PYTHON_VERSION" --force
+pyenv install -v "$PYTHON_VERSION" --force # Made verbose so that user does not think it is stuck
 
 echo "=== 7. Setting local/global pyenv version ==="
 pyenv local "$PYTHON_VERSION" || pyenv global "$PYTHON_VERSION"
@@ -93,3 +93,27 @@ echo "=== Installation complete! ==="
 python --version
 pip --version
 
+echo "=== 10. Creating shortcut ==="
+# Create a Desktop shortcut to launch main.py
+DESKTOP_FILE="$HOME/Desktop/photon.desktop"
+APP_DIR="$(pwd)"
+PYTHON_EXEC="$HOME/.pyenv/shims/python"
+
+cat <<EOF > "$DESKTOP_FILE"
+[Desktop Entry]
+Type=Application
+Name=Photon Team 6
+Comment=Launch Photon Application
+Exec=$PYTHON_EXEC $APP_DIR/main.py
+Path=$APP_DIR
+Terminal=true
+Categories=Development;
+EOF
+
+# Make the desktop shortcut executable
+chmod +x "$DESKTOP_FILE"
+
+# If using GNOME desktop environment, trust the launcher
+gio set "$DESKTOP_FILE" metadata::trusted true 2>/dev/null || true
+
+echo "Desktop shortcut created at $DESKTOP_FILE!"
