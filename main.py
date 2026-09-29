@@ -487,10 +487,16 @@ class View:
 
 
 
-# between here and game_loop acts as "main" (only called once)
+# Create the main window
 root = tk.Tk()
-# set window size
-root.geometry("1280x850")
+
+# Get the current screen size
+screen_width = root.winfo_screenwidth()
+screen_height = root.winfo_screenheight()
+
+# Make the window fit the screen
+root.geometry(f"{screen_width}x{screen_height}")
+
 m = Model()
 v = View(m)
 c = Controller(m, v)
