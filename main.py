@@ -63,40 +63,26 @@ class Countdown(tk.Frame):
         super().__init__(parent, bg="black")
         self.controller = controller
 
-        countImages = []
-        for i in range(0, 30):
-            countImages.append(Image.open("images/countdown" + str(i) + ".jpg").convert("RGBA"))
-            countImages[i].thumbnail((800, 600))
+        self.frames = []
+        for i in range(30, -1, -1):
+            image = Image.open("images/countdown" + str(i) + ".jpg").convert("RGBA")
+            image.thumbnail((800, 600))
+            self.frames.append(ImageTk.PhotoImage(image))
 
-        black_bg = Image.new("RGBA", countImages[0].size, (0, 0, 0, 255)) 
-        steps = 15
-        self.frames = [
-            ImageTk.PhotoImage(Image.blend(black_bg, countImages[i], j / steps))
-            for i in range(30, 0, -1)
-            for j in range(steps + 1)
-        ]
+        self.label = tk.Label(self, bg="black")
+        self.label.pack(expand=True)
 
     def on_show(self):
-        self.index, self.direction = 0, 1
+        self.index = 0
         self.animate()
 
     def animate(self):
         self.label.configure(image=self.frames[self.index])
-        if self.direction == 1 and self.index < len(self.frames) - 1:
+        if self.index < len(self.frames) - 1:
             self.index += 1
-            self.after(30, self.animate)
-        elif self.direction == 1:
-            self.after(2000, self.start_fade_out)  # hold fully visible
-        elif self.index > 0:
-            self.index -= 1
-            self.after(30, self.animate)
+            self.after(1000, self.animate)
         else:
-            # will eventually render the next screen
-            self.controller.show_game_screen()
-
-    def start_fade_out(self):
-        self.direction = -1
-        self.animate()
+            self.after(1000, self.controller.show_game_screen)
 
 # Player entry screen
 class PlayerEntryScreen(tk.Frame):
@@ -385,6 +371,8 @@ class PlayerEntryScreen(tk.Frame):
         self.status_label.config(text = "GAME READY")
 
         # Eventually show the game screen
+        self.controller.show_countdown_screen()
+
 
 class UDPSocket():
     def __init__(
@@ -507,6 +495,14 @@ class Controller:
             self.player_entry_screen.tkraise()
             if hasattr(self.player_entry_screen, "network_entry"):
                 self.player_entry_screen.network_entry.focus_set()
+
+    def show_countdown_screen(self):
+        if self.player_entry_screen is not None:
+            self.player_entry_screen.pack_forget()
+        if self.countdown_screen is not None:
+            self.countdown_screen.pack(fill="both", expand=True)
+            self.countdown_screen.tkraise()
+            self.countdown_screen.on_show()
 
     def show_game_screen(self): 
         pass
