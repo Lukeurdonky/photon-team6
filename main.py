@@ -504,8 +504,15 @@ class Controller:
             self.countdown_screen.tkraise()
             self.countdown_screen.on_show()
 
-    def show_game_screen(self): 
-        pass
+    def show_game_screen(self):
+        if self.countdown_screen is not None:
+            self.countdown_screen.pack_forget()
+        self.show_player_screen 
+        # Something like what's below will be needed, for now go back to player screen after countdown
+        #if self.game_action_screen is not None:
+        #    self.game_action_screen.pack(fill="both", expand=True)
+        #    self.game_action_screen.tkraise()
+        #    self.game_action_screen.on_show()
 
 # model may not expressly be needed because the database will be the backend.
 class Model:
