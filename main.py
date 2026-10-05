@@ -150,6 +150,11 @@ class PlayerEntryScreen(tk.Frame):
         self.status_label = tk.Label(self, text = "SYSTEM READY", bg = "black", fg = "#5CE1E6")
         self.status_label.pack()
 
+    def mark_row_as_not_added(self, row):
+        if row.get("added"):
+            row["added"] = False
+            self.status_label.config(text = "Player updated. Press Add to save the new values.")
+
     # Function to create a team panel with player rows
     def build_team_panel(self, parent, team_name, team_color):
         # Create a frame for the team panel
@@ -198,15 +203,22 @@ class PlayerEntryScreen(tk.Frame):
             equipment_id_entry = tk.Entry(frame, bg = "#2A1633", fg = "#F7F4F6", insertbackground = "#F7F4F6", width = 10)
             equipment_id_entry.grid(row = i + 2, column = 3, padx = 2, pady = 2)
 
+            row = {"player_id": player_id_entry, "codename": codename_entry, "equipment_id": equipment_id_entry, "added": False}
+
+            player_id_entry.bind("<KeyRelease>", lambda event, current_row = row: self.mark_row_as_not_added(current_row))
+            codename_entry.bind("<KeyRelease>", lambda event, current_row = row: self.mark_row_as_not_added(current_row))
+            equipment_id_entry.bind("<KeyRelease>", lambda event, current_row = row: self.mark_row_as_not_added(current_row))
+
             add_player_button = tk.Button(
                 frame,
                 text = "Add",
-                command = lambda row = {"player_id": player_id_entry, "codename": codename_entry, "equipment_id": equipment_id_entry}, team = team_name: self.add_player(row, team)
+                command = lambda row = row, team = team_name: self.add_player(row, team)
             )
             add_player_button.grid(row = i + 2, column = 4, padx = 2, pady = 2)
 
             # Store the entry boxes for the player
-            player_rows.append({"player_id": player_id_entry, "codename": codename_entry, "equipment_id": equipment_id_entry, "add_button": add_player_button})
+            row["add_button"] = add_player_button
+            player_rows.append(row)
 
         return frame, player_rows
 
@@ -226,6 +238,8 @@ class PlayerEntryScreen(tk.Frame):
         if not equipment_id.isdigit():
             self.status_label.config(text = "Equipment ID must be an integer.")
             return
+
+        row["added"] = True
 
         if self.udp is not None:
             self.udp.send(str(equipment_id))
@@ -264,6 +278,7 @@ class PlayerEntryScreen(tk.Frame):
     def clear_game(self, event = None):
         # Go through every player row on both teams
         for row in self.red_rows + self.green_rows:
+            row["added"] = False
             # Clear the player ID entry box
             row["player_id"].delete(0, tk.END)
 
@@ -283,6 +298,7 @@ class PlayerEntryScreen(tk.Frame):
     # Function for getting player information from a team
     def get_players(self, player_rows, team_name):
         players = []
+        has_unadded_entries = False
 
         # Go through every player row
         for row in player_rows:
@@ -294,10 +310,9 @@ class PlayerEntryScreen(tk.Frame):
             if player_id == "" and codename == "" and equipment_id == "":
                 continue
 
-            # Make sure partially filled rows are completed
-            if player_id == "" or codename == "" or equipment_id == "":
-                self.status_label.config(text = "Please complete all fields for " + team_name + ".")
-                return None
+            if row.get("added") is not True:
+                has_unadded_entries = True
+                continue
 
             # Make sure player ID is an integer
             if not player_id.isdigit():
@@ -311,6 +326,10 @@ class PlayerEntryScreen(tk.Frame):
 
             # Store the player information
             players.append({"player_id": int(player_id), "codename": codename, "equipment_id": int(equipment_id), "team": team_name})
+
+        if has_unadded_entries:
+            self.status_label.config(text = "Please press Add for every filled player before starting the game.")
+            return None
 
         return players
 
@@ -550,6 +569,11 @@ splashScreen.pack(fill="both", expand=True)
 # test building entry screen
 playerEntry = PlayerEntryScreen(root, c, udp=None)
 playerEntry.pack_forget()
+# Bind the F5 key to start the game
+root.bind("<F5>", playerEntry.start_game)
+
+# Bind the F12 key to clear the game
+root.bind("<F12>", playerEntry.clear_game)
 
 # countdown screen
 countdownScreen = Countdown(root, c)
