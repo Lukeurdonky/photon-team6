@@ -6,10 +6,10 @@ try:
 except ImportError:
     psycopg2 = None
 
-# params to be referenced later
+# params to be referenced later (testing no user)
 DB_PARAMS = {
-    "dbname": "photon",
-    "user": "student"
+    "dbname": "photon"#,
+    # "user": "student"
 }
 
 
@@ -82,3 +82,19 @@ class PlayerDatabase:
             return None
 
     #### end of class
+
+# connection test:  python database.py
+# adds a test player, reads it back, then deletes it so the table is unchanged
+if __name__ == "__main__":
+    db = PlayerDatabase()
+    if not db.is_connected():
+        print("[TEST] FAILED - could not connect (see above)")
+    else:
+        print("[TEST] Player 1 is:", db.get_codename(1))
+        if db.add_player(999999, "ConnectionTest") and db.get_codename(999999) == "ConnectionTest":
+            print("[TEST] PASSED - lookup and insert both work")
+        else:
+            print("[TEST] FAILED - insert or lookup did not work")
+        with db.conn.cursor() as cursor:
+            cursor.execute("DELETE FROM players WHERE id = %s;", (999999,))
+        db.close()
