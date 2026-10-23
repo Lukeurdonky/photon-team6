@@ -84,6 +84,155 @@ class Countdown(tk.Frame):
         else:
             self.after(1000, self.controller.show_game_screen)
 
+# Class for play action display
+class GameActionScreen(tk.Frame):
+    def __init__(self, parent, controller):
+        super().__init__(parent, bg = "#0B0712")
+
+        self.controller = controller
+
+        # Main heading
+        tk.Label(self, text = "PLAY ACTION", bg = "#0B0712", fg = "#5CE1E6", font = ("Arial", 24, "bold")
+        ).pack(pady = (20, 5))
+
+        # Subheading
+        tk.Label(self, text = "PHOTON LASER TAG SYSTEM", bg = "#0B0712", fg = "#5CE1E6", font = ("Arial", 12)
+        ).pack(pady = (0, 15))
+
+        # Frame to hold both teams
+        teams_frame = tk.Frame(self, bg = "#0B0712")
+        teams_frame.pack()
+
+        # Red team frame
+        self.red_frame = tk.Frame(teams_frame, bg = "#B22222", padx = 15, pady = 10, width = 450, height = 300)
+        self.red_frame.grid(row = 0, column = 0, padx = 20)
+        self.red_frame.grid_propagate(False)
+
+        # Center the red team columns inside the frame
+        self.red_frame.grid_columnconfigure(0, weight = 1)
+        self.red_frame.grid_columnconfigure(1, weight = 1)
+
+        # Green team frame
+        self.green_frame = tk.Frame(teams_frame, bg = "#228B22", padx = 15, pady = 10, width = 450, height = 300)
+        self.green_frame.grid(row = 0, column = 1, padx = 20)
+        self.green_frame.grid_propagate(False)
+
+        # Center the green team columns inside the frame
+        self.green_frame.grid_columnconfigure(0, weight = 1)
+        self.green_frame.grid_columnconfigure(1, weight = 1)
+
+        # Red team title
+        tk.Label(self.red_frame, text = "RED TEAM", bg = "#B22222", fg = "#FAF8F6", font = ("Terminal", 18, "bold")
+        ).grid(row = 0, column = 0, columnspan = 2, pady = 5)
+
+        # Green team title
+        tk.Label(self.green_frame, text = "GREEN TEAM", bg = "#228B22", fg = "#FAF8F6", font = ("Terminal", 18, "bold")
+        ).grid(row = 0, column = 0, columnspan = 2, pady = 5)
+
+        # Red team column titles
+        tk.Label(self.red_frame, text = "Codename", bg = "#B22222", fg = "#FAF8F6", font = ("Arial", 11, "bold")
+        ).grid(row = 1, column = 0)
+
+        tk.Label(self.red_frame, text = "Score", bg = "#B22222", fg = "#FAF8F6", font = ("Arial", 11, "bold")
+        ).grid(row = 1, column = 1)
+
+        # Green team column titles
+        tk.Label(self.green_frame, text = "Codename", bg = "#228B22", fg = "#FAF8F6", font = ("Arial", 11, "bold")
+        ).grid(row = 1, column = 0)
+
+        tk.Label(self.green_frame, text = "Score", bg = "#228B22", fg = "#FAF8F6", font = ("Arial", 11, "bold")
+        ).grid(row = 1, column = 1)
+
+        # Store the player labels so they can be cleared later
+        self.red_player_labels = []
+        self.green_player_labels = []
+
+        # Frame for team scores
+        score_frame = tk.Frame(self, bg = "#0B0712")
+        score_frame.pack(pady = 10)
+
+        # Red team score
+        self.red_score_label = tk.Label(score_frame, text = "RED SCORE: 0", bg = "#0B0712", fg = "#B22222", font = ("Arial", 16, "bold"))
+        self.red_score_label.grid(row = 0, column = 0, padx = 150)
+
+        # Green team score
+        self.green_score_label = tk.Label(score_frame, text = "GREEN SCORE: 0", bg = "#0B0712", fg = "#228B22", font = ("Arial", 16, "bold"))
+        self.green_score_label.grid(row = 0, column = 1, padx = 150)
+
+        # Frame for game action
+        action_frame = tk.Frame(self, bg = "#2A1633", padx = 15, pady = 15, width = 940, height = 220)
+        action_frame.pack(pady = 10)
+        action_frame.pack_propagate(False)
+
+        # Game action title
+        tk.Label(action_frame, text = "GAME ACTION", bg = "#2A1633", fg = "#5CE1E6", font = ("Arial", 16, "bold")
+        ).pack()
+
+        # Placeholder until events are added in a later sprint
+        self.action_label = tk.Label(action_frame, text = "Waiting for game events...", bg = "#2A1633", fg = "#FAF8F6", font = ("Arial", 12))
+        self.action_label.pack(pady = 40)
+
+
+    # Function for displaying players on both teams
+    def show_players(self, red_players, green_players):
+        # Remove old red team player labels
+        for label in self.red_player_labels:
+            label.destroy()
+
+        # Remove old green team player labels
+        for label in self.green_player_labels:
+            label.destroy()
+
+        # Clear the lists of old labels
+        self.red_player_labels = []
+        self.green_player_labels = []
+
+        # Display red team players
+        for i, player in enumerate(red_players):
+            codename_label = tk.Label(
+                self.red_frame,
+                text = player["codename"],
+                bg = "#B22222",
+                fg = "#FAF8F6",
+                font = ("Arial", 12)
+            )
+            codename_label.grid(row = i + 2, column = 0, pady = 2)
+
+            score_label = tk.Label(
+                self.red_frame,
+                text = "0",
+                bg = "#B22222",
+                fg = "#FAF8F6",
+                font = ("Arial", 12)
+            )
+            score_label.grid(row = i + 2, column = 1, pady = 2)
+
+            self.red_player_labels.append(codename_label)
+            self.red_player_labels.append(score_label)
+
+        # Display green team players
+        for i, player in enumerate(green_players):
+            codename_label = tk.Label(
+                self.green_frame,
+                text = player["codename"],
+                bg = "#228B22",
+                fg = "#FAF8F6",
+                font = ("Arial", 12)
+            )
+            codename_label.grid(row = i + 2, column = 0, pady = 2)
+
+            score_label = tk.Label(
+                self.green_frame,
+                text = "0",
+                bg = "#228B22",
+                fg = "#FAF8F6",
+                font = ("Arial", 12)
+            )
+            score_label.grid(row = i + 2, column = 1, pady = 2)
+
+            self.green_player_labels.append(codename_label)
+            self.green_player_labels.append(score_label)
+
 # Player entry screen
 class PlayerEntryScreen(tk.Frame):
     def __init__(self, parent, controller, udp):
@@ -526,12 +675,9 @@ class Controller:
     def show_game_screen(self):
         if self.countdown_screen is not None:
             self.countdown_screen.pack_forget()
-        self.show_player_screen 
-        # Something like what's below will be needed, for now go back to player screen after countdown
-        #if self.game_action_screen is not None:
-        #    self.game_action_screen.pack(fill="both", expand=True)
-        #    self.game_action_screen.tkraise()
-        #    self.game_action_screen.on_show()
+
+        # Play action screen will be connected here
+        self.show_player_screen()
 
 # model may not expressly be needed because the database will be the backend.
 class Model:
