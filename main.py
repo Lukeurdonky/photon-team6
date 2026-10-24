@@ -650,6 +650,8 @@ class Controller:
         self.splash_screen = None
         self.player_entry_screen = None
         self.countdown_screen = None
+        self.play_action_screen = None
+        
 
     def update(self):
         pass
@@ -675,6 +677,11 @@ class Controller:
     def show_game_screen(self):
         if self.countdown_screen is not None:
             self.countdown_screen.pack_forget()
+        if self.play_action_screen is not None:
+            self.play_action_screen.pack(fill="both", expand=True)
+            self.play_action_screen.tkraise()
+            #More methods may be added here eventually
+            
 
         # Play action screen will be connected here
         self.show_player_screen()
@@ -724,10 +731,14 @@ root.bind("<F12>", playerEntry.clear_game)
 # countdown screen
 countdownScreen = Countdown(root, c)
 
+# Play action screen
+playActionScreen = GameActionScreen(root, c)
+
 # store screen references for controller transitions
 c.splash_screen = splashScreen
 c.player_entry_screen = playerEntry
 c.countdown_screen = countdownScreen
+c.play_action_screen = playActionScreen
 
 # this makes the splash screen render after everything is connected
 splashScreen.on_show()
