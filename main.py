@@ -175,12 +175,6 @@ class GameActionScreen(tk.Frame):
         self.action_label = tk.Label(action_frame, text = "Waiting for game events...", bg = "#2A1633", fg = "#FAF8F6", font = ("Arial", 12))
         self.action_label.pack(pady = 40)
 
-        # Button to go back to the player entry screen
-        # (per the spec this should only appear after the game timer ends;
-        # it is always visible until the game timer is built)
-        self.return_button = tk.Button(self, text = "RETURN TO PLAYER ENTRY", command = self.controller.show_player_screen)
-        self.return_button.pack(pady = 10)
-
 
     # Function for displaying players on both teams
     def show_players(self, red_players, green_players):
