@@ -7,6 +7,9 @@ import random
 import threading
 import ipaddress
 
+# Database connection and player lookups (database.py)
+from database import PlayerDatabase
+
 # Constant values for the player entry screen
 MAX_PLAYERS = 15
 DEFAULT_NETWORK = "127.0.0.1"
@@ -241,11 +244,13 @@ class GameActionScreen(tk.Frame):
 
 # Player entry screen
 class PlayerEntryScreen(tk.Frame):
-    def __init__(self, parent, controller, udp):
+    def __init__(self, parent, controller, udp, db = None):
         super().__init__(parent, bg = "#0B0712")
 
         self.controller = controller
         self.udp = udp
+        # Player database (codename lookups and new player inserts)
+        self.db = db
 
         # Current network being used
         self.selected_network = DEFAULT_NETWORK
@@ -309,6 +314,35 @@ class PlayerEntryScreen(tk.Frame):
     def row_values(self, row):
         return (row["player_id"].get().strip(), row["codename"].get().strip(), row["equipment_id"].get().strip())
 
+    # Look up the codename for the player ID in the database and fill it in.
+    # Runs when the player ID box loses focus (Tab, click) or Enter is pressed.
+    def lookup_codename(self, row, move_focus = False):
+        player_id = row["player_id"].get().strip()
+
+        # Nothing to look up yet
+        if player_id == "" or not player_id.isdigit():
+            return
+
+        # Skip the lookup if the database isn't available
+        if self.db is None or not self.db.is_connected():
+            return
+
+        codename = self.db.get_codename(int(player_id))
+
+        if codename is not None:
+            # Found: fill in the codename and go on to the equipment ID
+            row["codename"].delete(0, tk.END)
+            row["codename"].insert(0, codename)
+            self.mark_row_as_not_added(row)
+            self.status_label.config(text = f"Found {codename}. Enter the equipment ID.")
+            if move_focus:
+                row["equipment_id"].focus_set()
+        else:
+            # Not found: the operator types a new codename, saved when Add is pressed
+            self.status_label.config(text = f"Player ID {player_id} not found. Enter a new codename.")
+            if move_focus:
+                row["codename"].focus_set()
+
     # Only un-mark a row if its values actually changed since Add was pressed
     # (so Tab, F5, arrow keys, etc. don't un-add a row)
     def mark_row_as_not_added(self, row):
@@ -370,6 +404,10 @@ class PlayerEntryScreen(tk.Frame):
             codename_entry.bind("<KeyRelease>", lambda event, current_row = row: self.mark_row_as_not_added(current_row))
             equipment_id_entry.bind("<KeyRelease>", lambda event, current_row = row: self.mark_row_as_not_added(current_row))
 
+            # Look up the codename in the database once the player ID is entered
+            player_id_entry.bind("<FocusOut>", lambda event, current_row = row: self.lookup_codename(current_row))
+            player_id_entry.bind("<Return>", lambda event, current_row = row: self.lookup_codename(current_row, move_focus = True))
+
             add_player_button = tk.Button(
                 frame,
                 text = "Add",
@@ -397,6 +435,23 @@ class PlayerEntryScreen(tk.Frame):
         if not equipment_id.isdigit():
             self.status_label.config(text = "Equipment ID must be an integer.")
             return
+
+        # Save new players to the database (or use the codename already stored there)
+        if self.db is not None and self.db.is_connected():
+            existing_codename = self.db.get_codename(int(player_id))
+
+            if existing_codename is None:
+                # New player: add them to the players table
+                if not self.db.add_player(int(player_id), codename):
+                    self.status_label.config(text = "Could not save the player to the database.")
+                    return
+            elif existing_codename != codename:
+                # Player ID already exists: the database codename wins
+                codename = existing_codename
+                row["codename"].delete(0, tk.END)
+                row["codename"].insert(0, codename)
+        else:
+            print("Database not connected - player was not saved.")
 
         row["added"] = True
         # Remember what was added so later edits can be detected
@@ -748,8 +803,11 @@ c = Controller(m, v)
 splashScreen = SplashScreen(root, c)
 splashScreen.pack(fill="both", expand=True)
 
+# connect to the photon database
+db = PlayerDatabase()
+
 # test building entry screen
-playerEntry = PlayerEntryScreen(root, c, udp=None)
+playerEntry = PlayerEntryScreen(root, c, udp=None, db=db)
 playerEntry.pack_forget()
 # Bind the F5 key to start the game
 root.bind("<F5>", playerEntry.start_game)
@@ -776,6 +834,15 @@ splashScreen.on_show()
 udp = UDPSocket()
 udp.start()
 playerEntry.udp = udp
+
+# close the database and sockets when the window is closed
+def on_close():
+    c.keep_going = False
+    udp.stop()
+    db.close()
+    root.destroy()
+
+root.protocol("WM_DELETE_WINDOW", on_close)
 
 # this is called every 40ms
 def game_loop():
