@@ -28,3 +28,10 @@ Team 6's implementation of the Photon Laser tag Software Engineering Project.
                                                                 ./install.sh
 
 4. To open the program, use the desktop shortcut or type the following command in the directory terminal: python main.py
+
+
+======Database instructions: ======
+1. To visualize Database through terminal:
+   psql photon -c "SELECT * FROM players;"
+
+2. Add players to the Database through player entry screen. Type in ID to try to query an existing player from the Database
