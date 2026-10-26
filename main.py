@@ -172,6 +172,12 @@ class GameActionScreen(tk.Frame):
         self.action_label = tk.Label(action_frame, text = "Waiting for game events...", bg = "#2A1633", fg = "#FAF8F6", font = ("Arial", 12))
         self.action_label.pack(pady = 40)
 
+        # Button to go back to the player entry screen
+        # (per the spec this should only appear after the game timer ends;
+        # it is always visible until the game timer is built)
+        self.return_button = tk.Button(self, text = "RETURN TO PLAYER ENTRY", command = self.controller.show_player_screen)
+        self.return_button.pack(pady = 10)
+
 
     # Function for displaying players on both teams
     def show_players(self, red_players, green_players):
@@ -299,8 +305,14 @@ class PlayerEntryScreen(tk.Frame):
         self.status_label = tk.Label(self, text = "SYSTEM READY", bg = "black", fg = "#5CE1E6")
         self.status_label.pack()
 
+    # Function for reading the current values in a player row
+    def row_values(self, row):
+        return (row["player_id"].get().strip(), row["codename"].get().strip(), row["equipment_id"].get().strip())
+
+    # Only un-mark a row if its values actually changed since Add was pressed
+    # (so Tab, F5, arrow keys, etc. don't un-add a row)
     def mark_row_as_not_added(self, row):
-        if row.get("added"):
+        if row.get("added") and self.row_values(row) != row.get("saved"):
             row["added"] = False
             self.status_label.config(text = "Player updated. Press Add to save the new values.")
 
@@ -352,7 +364,7 @@ class PlayerEntryScreen(tk.Frame):
             equipment_id_entry = tk.Entry(frame, bg = "#2A1633", fg = "#F7F4F6", insertbackground = "#F7F4F6", width = 10)
             equipment_id_entry.grid(row = i + 2, column = 3, padx = 2, pady = 2)
 
-            row = {"player_id": player_id_entry, "codename": codename_entry, "equipment_id": equipment_id_entry, "added": False}
+            row = {"player_id": player_id_entry, "codename": codename_entry, "equipment_id": equipment_id_entry, "added": False, "saved": None}
 
             player_id_entry.bind("<KeyRelease>", lambda event, current_row = row: self.mark_row_as_not_added(current_row))
             codename_entry.bind("<KeyRelease>", lambda event, current_row = row: self.mark_row_as_not_added(current_row))
@@ -372,9 +384,7 @@ class PlayerEntryScreen(tk.Frame):
         return frame, player_rows
 
     def add_player(self, row, team_name):
-        player_id = row["player_id"].get().strip()
-        codename = row["codename"].get().strip()
-        equipment_id = row["equipment_id"].get().strip()
+        player_id, codename, equipment_id = self.row_values(row)
 
         if player_id == "" or codename == "" or equipment_id == "":
             self.status_label.config(text = "Please complete all fields before adding a player.")
@@ -389,6 +399,8 @@ class PlayerEntryScreen(tk.Frame):
             return
 
         row["added"] = True
+        # Remember what was added so later edits can be detected
+        row["saved"] = (player_id, codename, equipment_id)
 
         if self.udp is not None:
             self.udp.send(str(equipment_id))
@@ -425,9 +437,14 @@ class PlayerEntryScreen(tk.Frame):
 
     # Function for clearing all player entries
     def clear_game(self, event = None):
+        # F12 is bound to the whole window, so ignore it unless this screen is showing
+        if not self.winfo_ismapped():
+            return
+
         # Go through every player row on both teams
         for row in self.red_rows + self.green_rows:
             row["added"] = False
+            row["saved"] = None
             # Clear the player ID entry box
             row["player_id"].delete(0, tk.END)
 
@@ -451,9 +468,7 @@ class PlayerEntryScreen(tk.Frame):
 
         # Go through every player row
         for row in player_rows:
-            player_id = row["player_id"].get().strip()
-            codename = row["codename"].get().strip()
-            equipment_id = row["equipment_id"].get().strip()
+            player_id, codename, equipment_id = self.row_values(row)
 
             # Ignore rows that are completely empty
             if player_id == "" and codename == "" and equipment_id == "":
@@ -514,6 +529,11 @@ class PlayerEntryScreen(tk.Frame):
 
     # Function for starting the game
     def start_game(self, event = None):
+        # F5 is bound to the whole window, so ignore it unless this screen is showing
+        # (otherwise F5 during the countdown or game would restart the countdown)
+        if not self.winfo_ismapped():
+            return
+
         # Get players from both teams
         red_players = self.get_players(self.red_rows, "RED TEAM")
         green_players = self.get_players(self.green_rows, "GREEN TEAM")
@@ -538,7 +558,11 @@ class PlayerEntryScreen(tk.Frame):
         # Update the status message
         self.status_label.config(text = "GAME READY")
 
-        # Eventually show the game screen
+        # Hand the rosters to the controller so the play action screen can show them
+        self.controller.red_players = red_players
+        self.controller.green_players = green_players
+
+        # Move on to the countdown, which then shows the game screen
         self.controller.show_countdown_screen()
 
 
@@ -651,15 +675,20 @@ class Controller:
         self.player_entry_screen = None
         self.countdown_screen = None
         self.play_action_screen = None
-        
+
+        # Rosters handed over from the player entry screen when the game starts
+        self.red_players = []
+        self.green_players = []
+
 
     def update(self):
         pass
 
-    # eventually show player screen
+    # Show the player entry screen and hide every other screen
     def show_player_screen(self):
-        if self.splash_screen is not None:
-            self.splash_screen.pack_forget()
+        for screen in (self.splash_screen, self.countdown_screen, self.play_action_screen):
+            if screen is not None:
+                screen.pack_forget()
         if self.player_entry_screen is not None:
             self.player_entry_screen.pack(fill="both", expand=True)
             self.player_entry_screen.tkraise()
@@ -678,13 +707,13 @@ class Controller:
         if self.countdown_screen is not None:
             self.countdown_screen.pack_forget()
         if self.play_action_screen is not None:
+            # Fill in the team boxes with the players that were entered
+            self.play_action_screen.show_players(self.red_players, self.green_players)
             self.play_action_screen.pack(fill="both", expand=True)
             self.play_action_screen.tkraise()
+            # Take keyboard focus off the hidden entry boxes so typing can't edit them
+            self.play_action_screen.focus_set()
             #More methods may be added here eventually
-            
-
-        # Play action screen will be connected here
-        self.show_player_screen()
 
 # model may not expressly be needed because the database will be the backend.
 class Model:
