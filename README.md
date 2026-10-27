@@ -15,7 +15,7 @@ Team 6's implementation of the Photon Laser tag Software Engineering Project.
    chmod +x install.sh
    ./install.sh
 
-2. Run Program by desktop shortcut or with:
+2. Run Program by desktop shortcut or by refreshing terminal and running:
    python main.py
    
 
@@ -27,7 +27,7 @@ Team 6's implementation of the Photon Laser tag Software Engineering Project.
 3. Install all dependencies using the commands in the terminal: chmod +x install.sh
                                                                 ./install.sh
 
-4. To open the program, use the desktop shortcut or type the following command in the directory terminal: python main.py
+4. To open the program, use the desktop shortcut or close and reopen the directory terminal and type the following command: python main.py
 
 
 ======Database instructions: ======
