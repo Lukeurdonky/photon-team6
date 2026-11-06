@@ -6,6 +6,7 @@ import time
 import random
 import threading
 import ipaddress
+import pygame
 
 # Database connection and player lookups (database.py)
 from database import PlayerDatabase
