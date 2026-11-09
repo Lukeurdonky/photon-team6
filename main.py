@@ -3,6 +3,7 @@ from PIL import Image, ImageTk
 import tkinter as tk
 import socket
 import time
+import math
 import random
 import threading
 import ipaddress
@@ -11,9 +12,10 @@ import pygame
 # Database connection and player lookups (database.py)
 from database import PlayerDatabase
 
-# Constant values for the player entry screen
+# Constant values for the player entry screen, game action screen
 MAX_PLAYERS = 15
 DEFAULT_NETWORK = "127.0.0.1"
+GAME_DURATION_SECONDS = 6 * 60  # 6 minutes
 
 # Luca's attempt at a splash screen
 class SplashScreen(tk.Frame):
@@ -94,6 +96,8 @@ class GameActionScreen(tk.Frame):
         super().__init__(parent, bg = "#0B0712")
 
         self.controller = controller
+        self.time_end = None
+        self.game_timer = None
 
         # Main heading
         tk.Label(self, text = "PLAY ACTION", bg = "#0B0712", fg = "#5CE1E6", font = ("Arial", 24, "bold")
@@ -102,6 +106,15 @@ class GameActionScreen(tk.Frame):
         # Subheading
         tk.Label(self, text = "PHOTON LASER TAG SYSTEM", bg = "#0B0712", fg = "#5CE1E6", font = ("Arial", 12)
         ).pack(pady = (0, 15))
+
+        # Timer on bottom of screen
+        self.timer_label = tk.Label(
+            self,
+            text = "TIME REMAINING: 06:00",
+            bg = "#0B0712",
+            fg = "#FAF8F6",
+            font = ("Arial", 18, "bold")
+        )
 
         # Frame to hold both teams
         teams_frame = tk.Frame(self, bg = "#0B0712")
@@ -176,6 +189,8 @@ class GameActionScreen(tk.Frame):
         self.action_label = tk.Label(action_frame, text = "Waiting for game events...", bg = "#2A1633", fg = "#FAF8F6", font = ("Arial", 12))
         self.action_label.pack(pady = 40)
 
+        self.timer_label.pack(side = "bottom", pady = 20)
+
 
     # Function for displaying players on both teams
     def show_players(self, red_players, green_players):
@@ -236,6 +251,42 @@ class GameActionScreen(tk.Frame):
 
             self.green_player_labels.append(codename_label)
             self.green_player_labels.append(score_label)
+
+    def start_timer(self):
+        if self.game_timer is not None:
+            self.after_cancel(self.game_timer)
+
+        # Set end time for the game timer
+        self.time_end = time.time() + GAME_DURATION_SECONDS
+
+        # Set starting timer display
+        self.timer_label.configure(text = "TIME REMAINING: 06:00", fg = "#FAF8F6")
+        self.game_timer = self.after(1000, self.update_timer)
+
+    def update_timer(self):
+        self.game_timer = None
+
+        # Update end time if not set
+        if self.time_end is None:
+            return
+
+        # Calculate remaining time
+        seconds_remaining = max(0, math.ceil(self.time_end - time.time()))
+
+        # Check for time up
+        if seconds_remaining == 0:
+            self.timer_label.configure(text = "TIME'S UP!", fg = "#B22222")
+            return
+
+        # Calculate remaining time
+        minutes = seconds_remaining // 60
+        seconds = seconds_remaining % 60
+
+        # Display remaining time
+        self.timer_label.configure(
+            text = f"TIME REMAINING: {minutes:02d}:{seconds:02d}"
+        )
+        self.game_timer = self.after(1000, self.update_timer)
 
 # Player entry screen
 class PlayerEntryScreen(tk.Frame):
@@ -761,6 +812,7 @@ class Controller:
             self.play_action_screen.show_players(self.red_players, self.green_players)
             self.play_action_screen.pack(fill="both", expand=True)
             self.play_action_screen.tkraise()
+            self.play_action_screen.start_timer()
             # Take keyboard focus off the hidden entry boxes so typing can't edit them
             self.play_action_screen.focus_set()
             #More methods may be added here eventually

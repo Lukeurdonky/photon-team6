@@ -1,119 +1,39 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
-PYTHON_VERSION="3.14.7"
+APP_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+VENV_DIR="$APP_DIR/.venv"
 
-echo "=== 1. Updating APT sources for archived Debian Bullseye packages ==="
-# Backup original sources.list
-sudo cp /etc/apt/sources.list /etc/apt/sources.list.bak
+echo "Installing Debian 13 system dependencies..."
+sudo apt-get update
+sudo apt-get install -y python3 python3-venv python3-tk
 
-# Point security repository to the Debian archive server
-sudo sed -i 's|http://security.debian.org/debian-security|http://archive.debian.org/debian-security|g' /etc/apt/sources.list
-sudo sed -i 's|bullseye-security|bullseye-security main|g' /etc/apt/sources.list
+echo "Creating project virtual environment..."
+python3 -m venv "$VENV_DIR"
+"$VENV_DIR/bin/python" -m pip install --upgrade pip
+"$VENV_DIR/bin/python" -m pip install -r "$APP_DIR/requirements.txt"
 
-echo "=== 2. Refreshing package lists ==="
-sudo apt-get update -o Acquire::Check-Valid-Until=false || true
+echo "Creating desktop shortcut..."
+DESKTOP_DIR="$HOME/Desktop"
+mkdir -p "$DESKTOP_DIR"
+DESKTOP_FILE="$DESKTOP_DIR/photon.desktop"
 
-echo "=== 3. Installing system build dependencies ==="
-sudo apt-get install -y --allow-downgrades --allow-remove-essential --allow-change-held-packages \
-  build-essential \
-  libssl-dev \
-  zlib1g-dev \
-  libbz2-dev \
-  libreadline-dev \
-  libsqlite3-dev \
-  wget \
-  curl \
-  llvm \
-  libncursesw5-dev \
-  xz-utils \
-  tk-dev \
-  libxml2-dev \
-  libxmlsec1-dev \
-  libffi-dev \
-  liblzma-dev \
-  git
-
-echo "=== 4. Set pyenv source ==="
-# Configure pyenv environment variables for the current script session
-export PYENV_ROOT="$HOME/.pyenv"
-export PATH="$PYENV_ROOT/bin:$PATH"
-eval "$(pyenv init -)"
-
-# Append to .bashrc so future terminal sessions automatically recognize pyenv
-PROFILE_FILE="$HOME/.bashrc"
-if ! grep -q 'PYENV_ROOT' "$PROFILE_FILE"; then
-  echo '' >> "$PROFILE_FILE"
-  echo 'export PYENV_ROOT="$HOME/.pyenv"' >> "$PROFILE_FILE"
-  echo '[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"' >> "$PROFILE_FILE"
-  echo 'eval "$(pyenv init -)"' >> "$PROFILE_FILE"
-fi
-
-echo "=== 5. Checking for pyenv installation ==="
-if ! command -v pyenv &> /dev/null; then
-  echo "pyenv not found. Installing pyenv..."
-  curl https://pyenv.run | bash
-
-  export PYENV_ROOT="$HOME/.pyenv"
-  export PATH="$PYENV_ROOT/bin:$PATH"
-  eval "$(pyenv init -)"
-
-  PROFILE_FILE="$HOME/.bashrc"
-  if ! grep -q 'PYENV_ROOT' "$PROFILE_FILE"; then
-    echo '' >> "$PROFILE_FILE"
-    echo 'export PYENV_ROOT="$HOME/.pyenv"' >> "$PROFILE_FILE"
-    echo '[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"' >> "$PROFILE_FILE"
-    echo 'eval "$(pyenv init -)"' >> "$PROFILE_FILE"
-    echo "Added pyenv environment configuration to $PROFILE_FILE"
-  fi
-else
-  echo "pyenv is already installed."
-  export PYENV_ROOT="$HOME/.pyenv"
-  export PATH="$PYENV_ROOT/bin:$PATH"
-  eval "$(pyenv init -)"
-fi
-
-echo "=== 6. Building Python $PYTHON_VERSION without ensurepip ==="
-CPPFLAGS="-I/usr/include/openssl" \
-LDFLAGS="-L/usr/lib" \
-PYTHON_CONFIGURE_OPTS="--without-ensurepip" \
-pyenv install -v "$PYTHON_VERSION" --force # Made verbose so that user does not think it is stuck
-
-echo "=== 7. Setting local/global pyenv version ==="
-pyenv local "$PYTHON_VERSION" || pyenv global "$PYTHON_VERSION"
-
-echo "=== 8. Bootstrapping pip manually ==="
-curl -sS https://bootstrap.pypa.io/get-pip.py | python
-
-echo "=== 9. Downloading additional requirements ==="
-sudo apt-get install python3-tk
-pip install -r requirements.txt
-
-echo "=== Installation complete! ==="
-python --version
-pip --version
-
-echo "=== 10. Creating shortcut ==="
-# Create a Desktop shortcut to launch main.py
-DESKTOP_FILE="$HOME/Desktop/photon.desktop"
-APP_DIR="$(pwd)"
-PYTHON_EXEC="$HOME/.pyenv/shims/python"
-
-cat <<EOF > "$DESKTOP_FILE"
+cat > "$DESKTOP_FILE" <<EOF
 [Desktop Entry]
 Type=Application
 Name=Photon Team 6
 Comment=Launch Photon Application
-Exec=$PYTHON_EXEC $APP_DIR/main.py
+Exec="$VENV_DIR/bin/python" "$APP_DIR/main.py"
 Path=$APP_DIR
 Terminal=true
 Categories=Development;
 EOF
 
-# Make the desktop shortcut executable
 chmod +x "$DESKTOP_FILE"
+if command -v gio >/dev/null 2>&1; then
+  gio set "$DESKTOP_FILE" metadata::trusted true 2>/dev/null || true
+fi
 
-# If using GNOME desktop environment, trust the launcher
-gio set "$DESKTOP_FILE" metadata::trusted true 2>/dev/null || true
-
-echo "Desktop shortcut created at $DESKTOP_FILE!"
+echo "Installation complete."
+echo "Run the application with: $VENV_DIR/bin/python $APP_DIR/main.py"
+echo "Desktop shortcut created at: $DESKTOP_FILE"
