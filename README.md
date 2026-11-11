@@ -24,10 +24,11 @@ Team 6's implementation of the Photon Laser tag Software Engineering Project.
 
 2. Download and extract the project zip file from GitHub
 
-3. Install all dependencies using the commands in the terminal: chmod +x install.sh
-                                                                ./install.sh
+3. Install all dependencies using the commands in the terminal (In order):
+   - chmod +x install.sh
+   - ./install.sh
 
-4. To open the program, use the desktop shortcut or close and reopen the directory terminal and type the following command: python main.py
+5. To open the program, use the desktop shortcut or close and reopen the directory terminal and type the following command: python main.py
 
 
 ======Database instructions: ======
