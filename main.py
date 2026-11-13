@@ -12,10 +12,47 @@ import pygame
 # Database connection and player lookups (database.py)
 from database import PlayerDatabase
 
+# Read files
+from pathlib import Path
+
 # Constant values for the player entry screen, game action screen
 MAX_PLAYERS = 15
 DEFAULT_NETWORK = "127.0.0.1"
 GAME_DURATION_SECONDS = 6 * 60  # 6 minutes
+
+# Music setup
+MUSIC_DIR = Path(__file__).resolve().parent / "photon_tracks"
+INTRO_SECONDS = 17   # seconds of the track that play before gameplay begins
+
+current_song = None
+
+def pick_random_song():
+    songs = sorted(MUSIC_DIR.glob("Track*.mp3"))
+    return str(random.choice(songs)) if songs else None
+
+def load_music():
+    #Pick a track and load it (doesn't play yet). Returns True if ready.
+    global current_song
+    current_song = pick_random_song()
+    if not current_song:
+        print("No song found in", MUSIC_DIR)
+        return False
+    try:
+        if not pygame.mixer.get_init():
+            pygame.mixer.init()
+        pygame.mixer.music.load(current_song)
+        return True
+    except pygame.error as exc:
+        print("Could not load music:", exc)
+        return False
+
+def start_music():
+    pygame.mixer.music.play()          # play once, no loop
+    print("Playing:", current_song)
+
+def stop_music():
+    if pygame.mixer.get_init():
+        pygame.mixer.music.stop()
 
 # Luca's attempt at a splash screen
 class SplashScreen(tk.Frame):
@@ -78,12 +115,25 @@ class Countdown(tk.Frame):
         self.label = tk.Label(self, bg="black")
         self.label.pack(expand=True)
 
+        # Game screen appears 1 second after the last frame, so the countdown
+        # lasts len(frames) seconds (31). Start the music INTRO_SECONDS before that.
+        self.music_start_index = max(0, len(self.frames) - INTRO_SECONDS)
+        self.music_started = False
+        self.music_ready = False
+
     def on_show(self):
         self.index = 0
+        self.music_started = False
+        self.music_ready = load_music()   # load now so playback starts instantly later
         self.animate()
 
     def animate(self):
         self.label.configure(image=self.frames[self.index])
+
+        if self.music_ready and not self.music_started and self.index >= self.music_start_index:
+            start_music()
+            self.music_started = True
+
         if self.index < len(self.frames) - 1:
             self.index += 1
             self.after(1000, self.animate)
@@ -787,6 +837,7 @@ class Controller:
 
     # Show the player entry screen and hide every other screen
     def show_player_screen(self):
+        stop_music()
         for screen in (self.splash_screen, self.countdown_screen, self.play_action_screen):
             if screen is not None:
                 screen.pack_forget()
@@ -885,10 +936,11 @@ playerEntry.udp = udp
 # close the database and sockets when the window is closed
 def on_close():
     c.keep_going = False
+    stop_music()
+    pygame.mixer.quit()
     udp.stop()
     db.close()
     root.destroy()
-
 root.protocol("WM_DELETE_WINDOW", on_close)
 
 # this is called every 40ms
