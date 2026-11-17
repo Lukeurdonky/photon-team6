@@ -163,6 +163,17 @@ class GameActionScreen(tk.Frame):
         self.time_end = None
         self.game_timer = None
 
+        # Keep track of players who have already hit a base
+        self.base_hitters = set()
+
+        # Store each player's play action row by equipment ID
+        self.player_rows = {}
+
+        # Load the base icon
+        base_image = Image.open("images/baseicon.jpg").convert("RGBA")
+        base_image.thumbnail((25, 25))
+        self.base_icon = ImageTk.PhotoImage(base_image)
+
         # Main heading
         tk.Label(self, text = "PLAY ACTION", bg = "#0B0712", fg = "#5CE1E6", font = ("Arial", 24, "bold")
         ).pack(pady = (20, 5))
@@ -191,7 +202,8 @@ class GameActionScreen(tk.Frame):
 
         # Center the red team columns inside the frame
         self.red_frame.grid_columnconfigure(0, weight = 1)
-        self.red_frame.grid_columnconfigure(1, weight = 1)
+        self.red_frame.grid_columnconfigure(1, weight = 0)
+        self.red_frame.grid_columnconfigure(2, weight = 1)
 
         # Green team frame
         self.green_frame = tk.Frame(teams_frame, bg = "#228B22", padx = 15, pady = 10, width = 450, height = 300)
@@ -200,29 +212,30 @@ class GameActionScreen(tk.Frame):
 
         # Center the green team columns inside the frame
         self.green_frame.grid_columnconfigure(0, weight = 1)
-        self.green_frame.grid_columnconfigure(1, weight = 1)
+        self.green_frame.grid_columnconfigure(1, weight = 0)
+        self.green_frame.grid_columnconfigure(2, weight = 1)
 
         # Red team title
         tk.Label(self.red_frame, text = "RED TEAM", bg = "#B22222", fg = "#FAF8F6", font = ("Terminal", 18, "bold")
-        ).grid(row = 0, column = 0, columnspan = 2, pady = 5)
+        ).grid(row = 0, column = 0, columnspan = 3, pady = 5)
 
         # Green team title
         tk.Label(self.green_frame, text = "GREEN TEAM", bg = "#228B22", fg = "#FAF8F6", font = ("Terminal", 18, "bold")
-        ).grid(row = 0, column = 0, columnspan = 2, pady = 5)
+        ).grid(row = 0, column = 0, columnspan = 3, pady = 5)
 
         # Red team column titles
         tk.Label(self.red_frame, text = "Codename", bg = "#B22222", fg = "#FAF8F6", font = ("Arial", 11, "bold")
         ).grid(row = 1, column = 0)
 
         tk.Label(self.red_frame, text = "Score", bg = "#B22222", fg = "#FAF8F6", font = ("Arial", 11, "bold")
-        ).grid(row = 1, column = 1)
+        ).grid(row = 1, column = 2)
 
         # Green team column titles
         tk.Label(self.green_frame, text = "Codename", bg = "#228B22", fg = "#FAF8F6", font = ("Arial", 11, "bold")
         ).grid(row = 1, column = 0)
 
         tk.Label(self.green_frame, text = "Score", bg = "#228B22", fg = "#FAF8F6", font = ("Arial", 11, "bold")
-        ).grid(row = 1, column = 1)
+        ).grid(row = 1, column = 2)
 
         # Store the player labels so they can be cleared later
         self.red_player_labels = []
@@ -270,6 +283,12 @@ class GameActionScreen(tk.Frame):
         self.red_player_labels = []
         self.green_player_labels = []
 
+        # Start a new game with no base hits
+        self.base_hitters = set()
+
+        # Clear the stored player rows
+        self.player_rows = {}
+
         # Display red team players
         for i, player in enumerate(red_players):
             codename_label = tk.Label(
@@ -281,6 +300,13 @@ class GameActionScreen(tk.Frame):
             )
             codename_label.grid(row = i + 2, column = 0, pady = 2)
 
+            # Empty space for the base icon
+            base_label = tk.Label(
+                self.red_frame,
+                bg = "#B22222"
+            )
+            base_label.grid(row = i + 2, column = 1, pady = 2)
+
             score_label = tk.Label(
                 self.red_frame,
                 text = "0",
@@ -288,9 +314,16 @@ class GameActionScreen(tk.Frame):
                 fg = "#FAF8F6",
                 font = ("Arial", 12)
             )
-            score_label.grid(row = i + 2, column = 1, pady = 2)
+            score_label.grid(row = i + 2, column = 2, pady = 2)
+
+            # Store the player's row using their equipment ID
+            self.player_rows[player["equipment_id"]] = {
+                "base_label": base_label,
+                "player": player
+            }
 
             self.red_player_labels.append(codename_label)
+            self.red_player_labels.append(base_label)
             self.red_player_labels.append(score_label)
 
         # Display green team players
@@ -304,6 +337,13 @@ class GameActionScreen(tk.Frame):
             )
             codename_label.grid(row = i + 2, column = 0, pady = 2)
 
+            # Empty space for the base icon
+            base_label = tk.Label(
+                self.green_frame,
+                bg = "#228B22"
+            )
+            base_label.grid(row = i + 2, column = 1, pady = 2)
+
             score_label = tk.Label(
                 self.green_frame,
                 text = "0",
@@ -311,10 +351,39 @@ class GameActionScreen(tk.Frame):
                 fg = "#FAF8F6",
                 font = ("Arial", 12)
             )
-            score_label.grid(row = i + 2, column = 1, pady = 2)
+            score_label.grid(row = i + 2, column = 2, pady = 2)
+
+            # Store the player's row using their equipment ID
+            self.player_rows[player["equipment_id"]] = {
+                "base_label": base_label,
+                "player": player
+            }
 
             self.green_player_labels.append(codename_label)
+            self.green_player_labels.append(base_label)
             self.green_player_labels.append(score_label)
+
+    # Add the base icon to a player after they hit a base
+    def add_base_icon(self, equipment_id):
+        # Do nothing if this player already hit a base
+        if equipment_id in self.base_hitters:
+            return
+
+        # Find the player using their equipment ID
+        player_row = self.player_rows.get(equipment_id)
+
+        # Stop if the equipment ID does not belong to a player
+        if player_row is None:
+            print("Could not find player with equipment ID:", equipment_id)
+            return
+
+        # Display the base icon beside the player
+        player_row["base_label"].configure(image = self.base_icon)
+
+        # Remember that this player already hit a base
+        self.base_hitters.add(equipment_id)
+
+        print("Added base icon to equipment ID:", equipment_id)
 
     def start_timer(self):
         if self.game_timer is not None:
@@ -973,10 +1042,17 @@ class Controller:
         while not self.udp.received_messages.empty():
             message = self.udp.received_messages.get_nowait()
 
+            # Process the gameplay message
+            equipment_ids = self.game_state.process_message(message)
+
             # Broadcast the equipment ID of each player that got hit
-            # (two IDs for friendly fire, nothing if the game isn't running)
-            for equipment_id in self.game_state.process_message(message):
+            for equipment_id in equipment_ids:
                 self.udp.send(equipment_id)
+
+            # Add the base icon to any player who has scored a base
+            for equipment_id, player in self.game_state.players.items():
+                if player["has_base"]:
+                    self.play_action_screen.add_base_icon(equipment_id)
 
     # Function for ending the game when the timer runs out
     def end_game(self):
@@ -1023,6 +1099,15 @@ class Controller:
             if self.udp is not None:
                 self.udp.send(GAME_START_CODE)
             #More methods may be added here eventually
+
+    # Handle an incoming base hit
+    def handle_base_hit(self, equipment_id):
+        if self.play_action_screen is not None:
+            self.play_action_screen.after(
+                0,
+                self.play_action_screen.add_base_icon,
+                equipment_id
+            )
 
 # model may not expressly be needed because the database will be the backend.
 class Model:
