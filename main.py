@@ -6,6 +6,7 @@ import time
 import math
 import random
 import threading
+import queue
 import ipaddress
 import pygame
 
@@ -19,6 +20,19 @@ from pathlib import Path
 MAX_PLAYERS = 15
 DEFAULT_NETWORK = "127.0.0.1"
 GAME_DURATION_SECONDS = 6 * 60  # 6 minutes
+
+# Point values for gameplay
+HIT_POINTS = 10    # gained for tagging the other team, lost by both players on friendly fire
+BASE_POINTS = 100  # gained for scoring the other team's base
+
+# Special codes received in place of a player's equipment ID when a base is hit
+RED_BASE_CODE = 53    # only green players can score the red base
+GREEN_BASE_CODE = 43  # only red players can score the green base
+
+# Codes broadcast to the players to start and end a game
+GAME_START_CODE = 202  # sent once when the countdown finishes
+GAME_END_CODE = 221    # sent GAME_END_REPEATS times when the timer runs out
+GAME_END_REPEATS = 3
 
 # Music setup
 MUSIC_DIR = Path(__file__).resolve().parent / "photon_tracks"
@@ -326,6 +340,8 @@ class GameActionScreen(tk.Frame):
         # Check for time up
         if seconds_remaining == 0:
             self.timer_label.configure(text = "TIME'S UP!", fg = "#B22222")
+            # Stop scoring and tell the players the game is over
+            self.controller.end_game()
             return
 
         # Calculate remaining time
@@ -749,6 +765,10 @@ class UDPSocket():
         self.send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.send_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
+        # Messages received by the receive thread wait here until the game loop handles them
+        # (tkinter isn't thread-safe, so the game loop on the main thread does the actual work)
+        self.received_messages = queue.Queue()
+
         self.running = False
 
     # loop for receiving transmissions
@@ -757,7 +777,11 @@ class UDPSocket():
         while self.running:
             try:
                 data, addr = self.recv_sock.recvfrom(self.buffer_size)
-                print(f"From {addr}: {data.decode(errors='ignore')}")
+                message = data.decode(errors='ignore')
+                print(f"From {addr}: {message}")
+
+                # Hand the message to the game loop
+                self.received_messages.put(message)
             except KeyboardInterrupt:
                 print("\nShutting down.")
                 break
@@ -816,6 +840,108 @@ class UDPSocket():
         except Exception:
             pass
 
+# Keeps track of the players and scores during a game.
+# Backend only for now: the play action screen will read from this once the frontend is connected.
+class GameState:
+    def __init__(self):
+        # Players in the current game, looked up by equipment ID
+        self.players = {}
+
+        # Only True while a game is being played, so hits outside of a game are ignored
+        self.running = False
+
+    # Function for setting up a new game with the rosters from the player entry screen
+    def start_game(self, red_players, green_players):
+        self.players = {}
+
+        for player in red_players + green_players:
+            # Copy the player so the player entry screen's roster isn't changed
+            game_player = dict(player)
+            game_player["score"] = 0
+
+            # Set when the player scores a base (the base icon will use this later)
+            game_player["has_base"] = False
+
+            self.players[player["equipment_id"]] = game_player
+
+        self.running = True
+
+    # Function for stopping the game so no more hits are counted
+    def end_game(self):
+        self.running = False
+
+    # Function for adding up the score of every player on a team
+    # (team_name is "RED TEAM" or "GREEN TEAM", the same names used by the player entry screen)
+    def team_score(self, team_name):
+        return sum(player["score"] for player in self.players.values() if player["team"] == team_name)
+
+    # Function for handling a message received from the players (or the traffic generator).
+    # The format is "equipment ID of shooter:equipment ID of player hit", for example "11:12".
+    # Returns the list of equipment IDs that need to be broadcast back.
+    def process_message(self, message):
+        # Ignore anything received when a game isn't running
+        if not self.running:
+            return []
+
+        # The traffic generator ends each message with a null character, so strip it off
+        parts = message.strip("\0 \t\r\n").split(":")
+
+        # Make sure the message is two integers separated by a colon
+        if len(parts) != 2 or not parts[0].isdigit() or not parts[1].isdigit():
+            print("Ignoring badly formatted message:", message)
+            return []
+
+        shooter_id = int(parts[0])
+        hit_id = int(parts[1])
+
+        # Base hits use a special code instead of a player's equipment ID
+        if hit_id == RED_BASE_CODE or hit_id == GREEN_BASE_CODE:
+            return self.handle_base_hit(shooter_id, hit_id)
+
+        return self.handle_player_hit(shooter_id, hit_id)
+
+    # Function for scoring one player tagging another
+    def handle_player_hit(self, shooter_id, hit_id):
+        shooter = self.players.get(shooter_id)
+        hit_player = self.players.get(hit_id)
+
+        # Equipment ID isn't in this game: still broadcast the hit, but don't score it
+        if shooter is None or hit_player is None:
+            print(f"Unknown equipment ID in hit {shooter_id}:{hit_id} - not scored.")
+            return [hit_id]
+
+        # Friendly fire: both players lose points and both get shut down
+        if shooter["team"] == hit_player["team"]:
+            shooter["score"] -= HIT_POINTS
+            hit_player["score"] -= HIT_POINTS
+            print(f"Friendly fire: {shooter['codename']} hit teammate {hit_player['codename']}")
+            return [hit_id, shooter_id]
+
+        # Normal hit: the shooter gains points and the player hit gets shut down
+        shooter["score"] += HIT_POINTS
+        print(f"{shooter['codename']} hit {hit_player['codename']}")
+        return [hit_id]
+
+    # Function for scoring a base hit (53 = red base, 43 = green base)
+    def handle_base_hit(self, shooter_id, base_code):
+        shooter = self.players.get(shooter_id)
+
+        # Green players score the red base, red players score the green base
+        if base_code == RED_BASE_CODE:
+            scoring_team = "GREEN TEAM"
+        else:
+            scoring_team = "RED TEAM"
+
+        # Players hitting their own base, unknown players, and players who already
+        # scored a base don't get points (each player can only score a base once)
+        if shooter is not None and shooter["team"] == scoring_team and not shooter["has_base"]:
+            shooter["score"] += BASE_POINTS
+            shooter["has_base"] = True
+            print(f"{shooter['codename']} scored the base ({base_code})")
+
+        # Broadcast the base code back, the same way a hit player's equipment ID is
+        return [base_code]
+
 # ATTEMPTING to copy the programming style we learned from Paradigms
 class Controller:
     def __init__(self, model, view):
@@ -831,9 +957,34 @@ class Controller:
         self.red_players = []
         self.green_players = []
 
+        # Scores and players for the current game
+        self.game_state = GameState()
 
+        # UDP socket, set once it's created at the bottom of the file
+        self.udp = None
+
+
+    # Called by the game loop every 40ms
     def update(self):
-        pass
+        if self.udp is None:
+            return
+
+        # Handle every message received since the last update
+        while not self.udp.received_messages.empty():
+            message = self.udp.received_messages.get_nowait()
+
+            # Broadcast the equipment ID of each player that got hit
+            # (two IDs for friendly fire, nothing if the game isn't running)
+            for equipment_id in self.game_state.process_message(message):
+                self.udp.send(equipment_id)
+
+    # Function for ending the game when the timer runs out
+    def end_game(self):
+        self.game_state.end_game()
+
+        if self.udp is not None:
+            for _ in range(GAME_END_REPEATS):
+                self.udp.send(GAME_END_CODE)
 
     # Show the player entry screen and hide every other screen
     def show_player_screen(self):
@@ -866,6 +1017,11 @@ class Controller:
             self.play_action_screen.start_timer()
             # Take keyboard focus off the hidden entry boxes so typing can't edit them
             self.play_action_screen.focus_set()
+
+            # Set up scoring before sending the start code so the first hit isn't missed
+            self.game_state.start_game(self.red_players, self.green_players)
+            if self.udp is not None:
+                self.udp.send(GAME_START_CODE)
             #More methods may be added here eventually
 
 # model may not expressly be needed because the database will be the backend.
@@ -932,6 +1088,7 @@ splashScreen.on_show()
 udp = UDPSocket()
 udp.start()
 playerEntry.udp = udp
+c.udp = udp
 
 # close the database and sockets when the window is closed
 def on_close():

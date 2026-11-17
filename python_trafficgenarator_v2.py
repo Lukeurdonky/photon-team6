@@ -1,4 +1,5 @@
-# this will be deleted since it's not supposed to be in our final project code
+# this will be deleted since it's not supposed to be in our final project
+# run it right after adding the players into the program
 import socket
 import random
 import time
