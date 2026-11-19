@@ -385,6 +385,19 @@ class GameActionScreen(tk.Frame):
 
         print("Added base icon to equipment ID:", equipment_id)
 
+    #Function to update the score counter on either red or green teams        
+    def update_score(self, red_players, green_players):
+        #Each team should start with 0 points
+		#If a player hits another player, add 10 hit points to the score on the team who hit
+		#If a player hits the base, add 100 hit points to the score on the team who hit
+
+    
+    #Function to update the game action window
+    def update_action(self, red_players, green_players):
+		#If a player hits another player, display [Player1] hit [Player2]
+		#I'm guessing the same thing applies for the base
+		#Display [Player] hit [red/green base]
+
     def start_timer(self):
         if self.game_timer is not None:
             self.after_cancel(self.game_timer)
