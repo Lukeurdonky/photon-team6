@@ -246,11 +246,13 @@ class GameActionScreen(tk.Frame):
         score_frame.pack(pady = 10)
 
         # Red team score
-        self.red_score_label = tk.Label(score_frame, text = "RED SCORE: 0", bg = "#0B0712", fg = "#B22222", font = ("Arial", 16, "bold"))
+		self.red_score_tally = 0
+        self.red_score_label = tk.Label(score_frame, text = "RED SCORE: {self.red_score_tally}", bg = "#0B0712", fg = "#B22222", font = ("Arial", 16, "bold"))
         self.red_score_label.grid(row = 0, column = 0, padx = 150)
 
         # Green team score
-        self.green_score_label = tk.Label(score_frame, text = "GREEN SCORE: 0", bg = "#0B0712", fg = "#228B22", font = ("Arial", 16, "bold"))
+		self.green_score_tally = 0
+        self.green_score_label = tk.Label(score_frame, text = "GREEN SCORE: {self.green_score_tally}", bg = "#0B0712", fg = "#228B22", font = ("Arial", 16, "bold"))
         self.green_score_label.grid(row = 0, column = 1, padx = 150)
 
         # Frame for game action
@@ -384,19 +386,39 @@ class GameActionScreen(tk.Frame):
         self.base_hitters.add(equipment_id)
 
         print("Added base icon to equipment ID:", equipment_id)
-
-    #Function to update the score counter on either red or green teams        
-    def update_score(self, red_players, green_players):
-        #Each team should start with 0 points
+		
+	def update_score(self,shooter_id, hit_id):
 		#If a player hits another player, add 10 hit points to the score on the team who hit
+		#shooter = self.players.get(shooter_id)
+        #hit_player = self.players.get(hit_id)
+		
+		#If red player hits a green player 
+			#self.red_score_tally += 10
+			#self.red_score_label.configure(text = f"RED SCORE: {self.red_score_tally}")
+		
+		#If green player hits a red player 
+			#self.green_score_tally += 10
+			#self.green_score_label.configure(text = f"GREEN SCORE: {self.green_score_tally}")
+		
 		#If a player hits the base, add 100 hit points to the score on the team who hit
+		
+		#If red player hits the green base
+			#self.red_score_tally += 100
+			#self.red_score_label.configure(text = f"RED SCORE: {self.red_score_tally}")
+		
+		#If green player hits the red base
+			#self.green_score_tally += 100
+			#self.green_score_label.configure(text = f"GREEN SCORE: {self.green_score_tally}")
 
-    
     #Function to update the game action window
-    def update_action(self, red_players, green_players):
-		#If a player hits another player, display [Player1] hit [Player2]
-		#I'm guessing the same thing applies for the base
-		#Display [Player] hit [red/green base]
+    def update_action(self, red_id, green_id):		
+		#If a player hits another player (Color doesn't matter, considering friendly fire)
+			#self.action.label.configure(text = "[player1] hit [player2]")
+
+		#If a player hits the base
+			#self.action.label.configure(text = "[player1] hit [red/green base]")
+
+		#NOTE: Add scrolling effect to this text
 
     def start_timer(self):
         if self.game_timer is not None:
