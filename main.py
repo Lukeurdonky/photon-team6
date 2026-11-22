@@ -34,11 +34,24 @@ GAME_START_CODE = 202  # sent once when the countdown finishes
 GAME_END_CODE = 221    # sent GAME_END_REPEATS times when the timer runs out
 GAME_END_REPEATS = 3
 
-#Boolean to detect if a player was hit
-#PLAYER_HIT = False 
+#Boolean to detect if a player was hit (set by GameState, read by the play action screen)
+PLAYER_HIT = False
 
-#Boolean to detect if a base was hit
-#BASE_HIT = False
+#Boolean to detect if a base was hit (only True when the base was actually scored)
+BASE_HIT = False
+
+#Equipment IDs of the shooter and target of the last hit, so the screen knows who hit who
+HIT_SHOOTER_ID = None
+HIT_TARGET_ID = None
+
+# Function for clearing the hit booleans. Called at the start of every message and
+# at the start/end of every game so an old hit is never shown twice.
+def reset_hit_flags():
+    global PLAYER_HIT, BASE_HIT, HIT_SHOOTER_ID, HIT_TARGET_ID
+    PLAYER_HIT = False
+    BASE_HIT = False
+    HIT_SHOOTER_ID = None
+    HIT_TARGET_ID = None
 
 # Music setup
 MUSIC_DIR = Path(__file__).resolve().parent / "photon_tracks"
@@ -252,13 +265,13 @@ class GameActionScreen(tk.Frame):
         score_frame.pack(pady = 10)
 
         # Red team score
-		self.red_score_tally = 0
-        self.red_score_label = tk.Label(score_frame, text = "RED SCORE: {self.red_score_tally}", bg = "#0B0712", fg = "#B22222", font = ("Arial", 16, "bold"))
+        self.red_score_tally = 0
+        self.red_score_label = tk.Label(score_frame, text = f"RED SCORE: {self.red_score_tally}", bg = "#0B0712", fg = "#B22222", font = ("Arial", 16, "bold"))
         self.red_score_label.grid(row = 0, column = 0, padx = 150)
 
         # Green team score
-		self.green_score_tally = 0
-        self.green_score_label = tk.Label(score_frame, text = "GREEN SCORE: {self.green_score_tally}", bg = "#0B0712", fg = "#228B22", font = ("Arial", 16, "bold"))
+        self.green_score_tally = 0
+        self.green_score_label = tk.Label(score_frame, text = f"GREEN SCORE: {self.green_score_tally}", bg = "#0B0712", fg = "#228B22", font = ("Arial", 16, "bold"))
         self.green_score_label.grid(row = 0, column = 1, padx = 150)
 
         # Frame for game action
@@ -297,6 +310,13 @@ class GameActionScreen(tk.Frame):
         # Clear the stored player rows
         self.player_rows = {}
 
+        # Start a new game with both team scores at 0
+        self.red_score_tally = 0
+        self.green_score_tally = 0
+        self.red_score_label.configure(text = f"RED SCORE: {self.red_score_tally}")
+        self.green_score_label.configure(text = f"GREEN SCORE: {self.green_score_tally}")
+        self.action_label.configure(text = "Waiting for game events...")
+
         # Display red team players
         for i, player in enumerate(red_players):
             codename_label = tk.Label(
@@ -327,6 +347,8 @@ class GameActionScreen(tk.Frame):
             # Store the player's row using their equipment ID
             self.player_rows[player["equipment_id"]] = {
                 "base_label": base_label,
+                "score_label": score_label,
+                "score": 0,
                 "player": player
             }
 
@@ -364,6 +386,8 @@ class GameActionScreen(tk.Frame):
             # Store the player's row using their equipment ID
             self.player_rows[player["equipment_id"]] = {
                 "base_label": base_label,
+                "score_label": score_label,
+                "score": 0,
                 "player": player
             }
 
@@ -392,62 +416,78 @@ class GameActionScreen(tk.Frame):
         self.base_hitters.add(equipment_id)
 
         print("Added base icon to equipment ID:", equipment_id)
-		
-	def update_score(self,equipment_id, equipment_id):
-		#If a player hits another player, add 10 hit points to the score on the team who hit
-		#shooter = self.players_rows.get(equipment_id)
-        #target = self.players_rows.get(equipment_id)
-		
-		#If red player hits a green player
-		#if PLAYER_HIT is true and shooter in red_player_labels and target in green_player_labels
-			#self.red_score_tally += 10
-			#self.red_score_label.configure(text = f"RED SCORE: {self.red_score_tally}")
 
-		#If red player hits a red player (Friendly fire, team loses 20 points)
-		#if PLAYER_HIT is true and shooter in red_player_labels and target in red_player_labels
-			#self.red_score_tally -= 20
-			#self.red_score_label.configure(text = f"RED SCORE: {self.red_score_tally}")
-		
-		#If green player hits a red player 
-		#if PLAYER_HIT is true and shooter in green_player_labels and target in red_player_labels
-			#self.green_score_tally += 10
-			#self.green_score_label.configure(text = f"GREEN SCORE: {self.green_score_tally}")
+    # Function to add points to one player's score column and their team's score
+    def add_player_points(self, player_row, points):
+        player_row["score"] += points
+        player_row["score_label"].configure(text = str(player_row["score"]))
 
-		#If green player hits a green player (Friendly fire, team loses 20 points)
-		#if PLAYER_HIT is true and shooter in green_player_labels and target in green_player_labels
-			#self.red_score_tally -= 20
-			#self.green_score_label.configure(text = f"GREEN SCORE: {self.green_score_tally}")
-		
-		#If a player hits the base, add 100 hit points to the score on the team who hit
-		
-		#If red player hits the green base
-		#if BASE_HIT is true and shooter in red_player_labels and target = GREEN_BASE_CODE
-			#self.red_score_tally += 100
-			#self.red_score_label.configure(text = f"RED SCORE: {self.red_score_tally}")
-		
-		#If green player hits the red base
-		#if BASE_HIT is true and shooter in green_player_labels and target = RED_BASE_CODE
-			#self.green_score_tally += 100
-			#self.green_score_label.configure(text = f"GREEN SCORE: {self.green_score_tally}")
+        if player_row["player"]["team"] == "RED TEAM":
+            self.red_score_tally += points
+            self.red_score_label.configure(text = f"RED SCORE: {self.red_score_tally}")
+        else:
+            self.green_score_tally += points
+            self.green_score_label.configure(text = f"GREEN SCORE: {self.green_score_tally}")
 
-    #Function to update the game action window
-    def update_action(self, equipment_id, equipment_id):
-		#shooter = self.players_rows.get(equipment_id)
-        #target = self.players_rows.get(equipment_id)
+    # Function to update the player and team score counters after a scored hit
+    # (only called when the backend actually scored the hit, see Controller.update)
+    def update_score(self, shooter_equipment_id, target_equipment_id):
+        shooter_row = self.player_rows.get(shooter_equipment_id)
 
-		#If a player hits another player (Color doesn't matter, considering friendly fire)
-		#if PLAYER_HIT is true and shooter in red_player_labels or shooter in green_player_labels and target in red_player_labels or target in green_player_labels
-			#self.action.label.configure(text = "{shooter.codename_label} hit {target.codename_label}")
+        # Stop if the shooter isn't a player in this game
+        if shooter_row is None:
+            return
 
-		#If a green player hits red base
-		#if BASE_HIT is true and shooter in green_player_labels and target = RED_BASE_CODE
-			#self.action.label.configure(text = "{shooter.codename_label} hit red base")
+        # If a player hits the base, the shooter gets 100 points
+        # (the backend only scores a base once per player, and only the other team's base)
+        if target_equipment_id == RED_BASE_CODE or target_equipment_id == GREEN_BASE_CODE:
+            self.add_player_points(shooter_row, BASE_POINTS)
+            return
 
-		#If a red player hits green base
-		#if BASE_HIT is true and shooter in red_player_labels and target = GREEN_BASE_CODE
-			#self.action.label.configure(text = "{shooter.codename_label} hit green base")
+        target_row = self.player_rows.get(target_equipment_id)
 
-		#NOTE: Add scrolling effect to this text
+        # Stop if the player hit isn't in this game
+        if target_row is None:
+            return
+
+        # Friendly fire: both players lose 10 points, so the team loses 20
+        if target_row["player"]["team"] == shooter_row["player"]["team"]:
+            self.add_player_points(shooter_row, -HIT_POINTS)
+            self.add_player_points(target_row, -HIT_POINTS)
+
+        # If a player hits a player on the other team, the shooter gets 10 points
+        else:
+            self.add_player_points(shooter_row, HIT_POINTS)
+
+    # Function to update the game action window after a scored hit
+    def update_action(self, shooter_equipment_id, target_equipment_id):
+        shooter_row = self.player_rows.get(shooter_equipment_id)
+
+        # Stop if the shooter isn't a player in this game
+        if shooter_row is None:
+            return
+
+        shooter_name = shooter_row["player"]["codename"]
+
+        # If a green player hits the red base
+        if target_equipment_id == RED_BASE_CODE:
+            self.action_label.configure(text = f"{shooter_name} hit red base")
+
+        # If a red player hits the green base
+        elif target_equipment_id == GREEN_BASE_CODE:
+            self.action_label.configure(text = f"{shooter_name} hit green base")
+
+        # If a player hits another player (color doesn't matter, considering friendly fire)
+        else:
+            target_row = self.player_rows.get(target_equipment_id)
+
+            if target_row is None:
+                return
+
+            target_name = target_row["player"]["codename"]
+            self.action_label.configure(text = f"{shooter_name} hit {target_name}")
+
+        #NOTE: Add scrolling effect to this text
 
     def start_timer(self):
         if self.game_timer is not None:
@@ -997,11 +1037,17 @@ class GameState:
 
             self.players[player["equipment_id"]] = game_player
 
+        # Don't carry a hit over from the last game
+        reset_hit_flags()
+
         self.running = True
 
     # Function for stopping the game so no more hits are counted
     def end_game(self):
         self.running = False
+
+        # Don't leave the last hit of this game set after it ends
+        reset_hit_flags()
 
     # Function for adding up the score of every player on a team
     # (team_name is "RED TEAM" or "GREEN TEAM", the same names used by the player entry screen)
@@ -1012,6 +1058,10 @@ class GameState:
     # The format is "equipment ID of shooter:equipment ID of player hit", for example "11:12".
     # Returns the list of equipment IDs that need to be broadcast back.
     def process_message(self, message):
+        # Clear the hit booleans from the last message, so a bad or ignored message
+        # never looks like a hit
+        reset_hit_flags()
+
         # Ignore anything received when a game isn't running
         if not self.running:
             return []
@@ -1035,6 +1085,8 @@ class GameState:
 
     # Function for scoring one player tagging another
     def handle_player_hit(self, shooter_id, hit_id):
+        global PLAYER_HIT, HIT_SHOOTER_ID, HIT_TARGET_ID
+
         shooter = self.players.get(shooter_id)
         hit_player = self.players.get(hit_id)
 
@@ -1044,21 +1096,26 @@ class GameState:
             return [hit_id]
 
         # Friendly fire: both players lose points and both get shut down
+        # Both players are in this game, so the hit counts
+        PLAYER_HIT = True
+        HIT_SHOOTER_ID = shooter_id
+        HIT_TARGET_ID = hit_id
+
         if shooter["team"] == hit_player["team"]:
-			#PLAYER_HIT = True
             shooter["score"] -= HIT_POINTS
             hit_player["score"] -= HIT_POINTS
             print(f"Friendly fire: {shooter['codename']} hit teammate {hit_player['codename']}")
             return [hit_id, shooter_id]
 
         # Normal hit: the shooter gains points and the player hit gets shut down
-		#PLAYER_HIT = True
         shooter["score"] += HIT_POINTS
         print(f"{shooter['codename']} hit {hit_player['codename']}")
         return [hit_id]
 
     # Function for scoring a base hit (53 = red base, 43 = green base)
     def handle_base_hit(self, shooter_id, base_code):
+        global BASE_HIT, HIT_SHOOTER_ID, HIT_TARGET_ID
+
         shooter = self.players.get(shooter_id)
 
         # Green players score the red base, red players score the green base
@@ -1069,8 +1126,11 @@ class GameState:
 
         # Players hitting their own base, unknown players, and players who already
         # scored a base don't get points (each player can only score a base once)
+        # (BASE_HIT stays False for those, so the screen doesn't show or score them)
         if shooter is not None and shooter["team"] == scoring_team and not shooter["has_base"]:
-			#BASE_HIT = True
+            BASE_HIT = True
+            HIT_SHOOTER_ID = shooter_id
+            HIT_TARGET_ID = base_code
             shooter["score"] += BASE_POINTS
             shooter["has_base"] = True
             print(f"{shooter['codename']} scored the base ({base_code})")
@@ -1116,10 +1176,17 @@ class Controller:
             for equipment_id in equipment_ids:
                 self.udp.send(equipment_id)
 
-            # Add the base icon to any player who has scored a base
-            for equipment_id, player in self.game_state.players.items():
-                if player["has_base"]:
-                    self.play_action_screen.add_base_icon(equipment_id)
+            if self.play_action_screen is None:
+                continue
+
+            # Only update the screen if the hit was actually scored
+            if PLAYER_HIT or BASE_HIT:
+                self.play_action_screen.update_score(HIT_SHOOTER_ID, HIT_TARGET_ID)
+                self.play_action_screen.update_action(HIT_SHOOTER_ID, HIT_TARGET_ID)
+
+            # Add the base icon to the player who just scored a base
+            if BASE_HIT:
+                self.play_action_screen.add_base_icon(HIT_SHOOTER_ID)
 
     # Function for ending the game when the timer runs out
     def end_game(self):
