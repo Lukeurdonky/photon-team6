@@ -20,6 +20,7 @@ from pathlib import Path
 MAX_PLAYERS = 15
 DEFAULT_NETWORK = "127.0.0.1"
 GAME_DURATION_SECONDS = 6 * 60  # 6 minutes
+MAX_ACTION_LINES = 100  # oldest game action events are dropped after this many
 
 # Point values for gameplay
 HIT_POINTS = 10    # gained for tagging the other team, lost by both players on friendly fire
@@ -283,9 +284,25 @@ class GameActionScreen(tk.Frame):
         tk.Label(action_frame, text = "GAME ACTION", bg = "#2A1633", fg = "#5CE1E6", font = ("Arial", 16, "bold")
         ).pack()
 
-        # Placeholder until events are added in a later sprint
-        self.action_label = tk.Label(action_frame, text = "Waiting for game events...", bg = "#2A1633", fg = "#FAF8F6", font = ("Arial", 12))
-        self.action_label.pack(pady = 40)
+        # Scrolling feed of game events: new events are added at the bottom and
+        # older ones scroll up. Players can scroll back with the mouse wheel.
+        self.action_feed = tk.Text(
+            action_frame,
+            bg = "#2A1633",
+            fg = "#FAF8F6",
+            font = ("Arial", 12),
+            relief = "flat",
+            highlightthickness = 0,
+            wrap = "word",
+            cursor = "arrow",
+            takefocus = 0
+        )
+        self.action_feed.tag_configure("center", justify = "center")
+        self.action_feed.pack(fill = "both", expand = True, pady = (5, 0))
+
+        # Only show the placeholder until the first event comes in
+        self.action_feed_empty = True
+        self.clear_actions()
 
         self.timer_label.pack(side = "bottom", pady = 20)
 
@@ -315,7 +332,7 @@ class GameActionScreen(tk.Frame):
         self.green_score_tally = 0
         self.red_score_label.configure(text = f"RED SCORE: {self.red_score_tally}")
         self.green_score_label.configure(text = f"GREEN SCORE: {self.green_score_tally}")
-        self.action_label.configure(text = "Waiting for game events...")
+        self.clear_actions()
 
         # Display red team players
         for i, player in enumerate(red_players):
@@ -471,11 +488,11 @@ class GameActionScreen(tk.Frame):
 
         # If a green player hits the red base
         if target_equipment_id == RED_BASE_CODE:
-            self.action_label.configure(text = f"{shooter_name} hit red base")
+            self.add_action(f"{shooter_name} hit red base")
 
         # If a red player hits the green base
         elif target_equipment_id == GREEN_BASE_CODE:
-            self.action_label.configure(text = f"{shooter_name} hit green base")
+            self.add_action(f"{shooter_name} hit green base")
 
         # If a player hits another player (color doesn't matter, considering friendly fire)
         else:
@@ -485,9 +502,39 @@ class GameActionScreen(tk.Frame):
                 return
 
             target_name = target_row["player"]["codename"]
-            self.action_label.configure(text = f"{shooter_name} hit {target_name}")
+            self.add_action(f"{shooter_name} hit {target_name}")
 
-        #NOTE: Add scrolling effect to this text
+    # Function to add one event to the bottom of the game action feed
+    def add_action(self, text):
+        # The feed is read-only, so unlock it just long enough to add the line
+        self.action_feed.configure(state = "normal")
+
+        # Remove the placeholder on the first event of the game
+        if self.action_feed_empty:
+            self.action_feed.delete("1.0", "end")
+            self.action_feed_empty = False
+        else:
+            self.action_feed.insert("end", "\n")
+
+        self.action_feed.insert("end", text, "center")
+
+        # Only keep the newest events so a long game doesn't keep using more memory
+        line_count = int(self.action_feed.index("end-1c").split(".")[0])
+        if line_count > MAX_ACTION_LINES:
+            self.action_feed.delete("1.0", f"{line_count - MAX_ACTION_LINES + 1}.0")
+
+        self.action_feed.configure(state = "disabled")
+
+        # Scroll down so the newest event is always visible
+        self.action_feed.see("end")
+
+    # Function to empty the game action feed and show the placeholder
+    def clear_actions(self):
+        self.action_feed.configure(state = "normal")
+        self.action_feed.delete("1.0", "end")
+        self.action_feed.insert("end", "Waiting for game events...", "center")
+        self.action_feed.configure(state = "disabled")
+        self.action_feed_empty = True
 
     def start_timer(self):
         if self.game_timer is not None:
