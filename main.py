@@ -1010,33 +1010,37 @@ class UDPSocket():
             except OSError:
                 break
 
-    # loop for sending transmissions
-    def _send_loop(self, interval = 1.0):
-        print(f"Broadcasting from {self.source_ip} to {self.broadcast_ip}:{self.tr_port}")
-        while self.running:
-            self.send_sock.sendto(self.message.encode(), (self.broadcast_ip, self.tr_port))
-            print("Sent:", self.message)
-            time.sleep(interval)
+    # REDUNDANT: the periodic "UDP TEST" broadcast was only used for early socket testing.
+    # Everything is sent one message at a time with send() now, so nothing calls these.
+    # # loop for sending transmissions
+    # def _send_loop(self, interval = 1.0):
+    #     print(f"Broadcasting from {self.source_ip} to {self.broadcast_ip}:{self.tr_port}")
+    #     while self.running:
+    #         self.send_sock.sendto(self.message.encode(), (self.broadcast_ip, self.tr_port))
+    #         print("Sent:", self.message)
+    #         time.sleep(interval)
 
-    # simultaneously starts sending and receiving via threading
+    # starts the receive thread (sending is done with send())
     def start(self, send_periodic = False, interval = 1.0):
         self.running = True
 
         self.recv_thread = threading.Thread(target=self._receive_loop, daemon=True)
         self.recv_thread.start()
 
-        if send_periodic:
-            self.send_thread = threading.Thread(target=self._send_loop, args=(interval,), daemon=True)
-            self.send_thread.start()
+        # REDUNDANT: see _send_loop above (send_periodic is never True)
+        # if send_periodic:
+        #     self.send_thread = threading.Thread(target=self._send_loop, args=(interval,), daemon=True)
+        #     self.send_thread.start()
 
-    def start_periodic_broadcast(self, message = None, interval = 1.0):
-        if message is not None:
-            self.message = message
-        if not self.running:
-            self.start(send_periodic=True, interval=interval)
-        else:
-            self.send_thread = threading.Thread(target=self._send_loop, args=(interval,), daemon=True)
-            self.send_thread.start()
+    # REDUNDANT: never called, see _send_loop above
+    # def start_periodic_broadcast(self, message = None, interval = 1.0):
+    #     if message is not None:
+    #         self.message = message
+    #     if not self.running:
+    #         self.start(send_periodic=True, interval=interval)
+    #     else:
+    #         self.send_thread = threading.Thread(target=self._send_loop, args=(interval,), daemon=True)
+    #         self.send_thread.start()
 
     # sends a single message, or at least it should.
     def send(self, message):
@@ -1281,14 +1285,16 @@ class Controller:
                 self.udp.send(GAME_START_CODE)
             #More methods may be added here eventually
 
-    # Handle an incoming base hit
-    def handle_base_hit(self, equipment_id):
-        if self.play_action_screen is not None:
-            self.play_action_screen.after(
-                0,
-                self.play_action_screen.add_base_icon,
-                equipment_id
-            )
+    # REDUNDANT: never called. Controller.update now adds the base icon directly
+    # when BASE_HIT is set (and GameState.handle_base_hit does the scoring).
+    # # Handle an incoming base hit
+    # def handle_base_hit(self, equipment_id):
+    #     if self.play_action_screen is not None:
+    #         self.play_action_screen.after(
+    #             0,
+    #             self.play_action_screen.add_base_icon,
+    #             equipment_id
+    #         )
 
 # model may not expressly be needed because the database will be the backend.
 class Model:
